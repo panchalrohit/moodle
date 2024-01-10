@@ -54,6 +54,7 @@ class cohort_upload_form extends moodleform {
         $filepickeroptions['filetypes'] = '*';
         $filepickeroptions['maxbytes'] = get_max_upload_file_size();
         $mform->addElement('filepicker', 'cohortfile', get_string('file'), null, $filepickeroptions);
+        $mform->addRule('cohortfile', null, 'required');
 
         $choices = csv_import_reader::get_delimiter_list();
         $mform->addElement('select', 'delimiter', get_string('csvdelimiter', 'tool_uploadcourse'), $choices);
