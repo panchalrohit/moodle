@@ -18,17 +18,12 @@ declare(strict_types=1);
 
 namespace core_reportbuilder\local\aggregation;
 
-use core_reportbuilder_testcase;
 use core_reportbuilder_generator;
 use core_reportbuilder\manager;
 use core_reportbuilder\local\report\column;
+use core_reportbuilder\tests\core_reportbuilder_testcase;
 use core_user\reportbuilder\datasource\users;
 use stdClass;
-
-defined('MOODLE_INTERNAL') || die();
-
-global $CFG;
-require_once("{$CFG->dirroot}/reportbuilder/tests/helpers.php");
 
 /**
  * Unit tests for sum aggregation
@@ -39,7 +34,7 @@ require_once("{$CFG->dirroot}/reportbuilder/tests/helpers.php");
  * @copyright   2021 Paul Holden <paulh@moodle.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class sum_test extends core_reportbuilder_testcase {
+final class sum_test extends core_reportbuilder_testcase {
 
     /**
      * Test aggregation when applied to column
@@ -55,31 +50,54 @@ class sum_test extends core_reportbuilder_testcase {
         $generator = $this->getDataGenerator()->get_plugin_generator('core_reportbuilder');
         $report = $generator->create_report(['name' => 'Users', 'source' => users::class, 'default' => 0]);
 
-        // First column, sorted.
-        $generator->create_column(['reportid' => $report->get('id'), 'uniqueidentifier' => 'user:firstname', 'sortenabled' => 1]);
-
-        // This is the column we'll aggregate.
+        // Report columns, aggregated/sorted by user suspended.
+        $generator->create_column(['reportid' => $report->get('id'), 'uniqueidentifier' => 'user:firstname']);
         $generator->create_column([
-            'reportid' => $report->get('id'), 'uniqueidentifier' => 'user:suspended', 'aggregation' => sum::get_class_name()
+            'reportid' => $report->get('id'),
+            'uniqueidentifier' => 'user:suspended',
+            'aggregation' => sum::get_class_name(),
+            'sortenabled' => 1,
+            'sortdirection' => SORT_DESC,
         ]);
 
         $content = $this->get_custom_report_content($report->get('id'));
         $this->assertEquals([
-            [
-                'c0_firstname' => 'Admin',
-                'c1_suspended' => 0,
-            ],
-            [
-                'c0_firstname' => 'Bob',
-                'c1_suspended' => 2,
-            ],
-        ], $content);
+            ['Bob', 2],
+            ['Admin', 0],
+        ], array_map('array_values', $content));
+    }
+
+    /**
+     * Data provider for {@see test_column_aggregation_with_callback}
+     *
+     * @return array[]
+     */
+    public static function column_aggregation_with_callback_provider(): array {
+        return [
+            [column::TYPE_INTEGER, [
+                '0 (sum)',
+                '2 (sum)',
+            ]],
+            [column::TYPE_FLOAT, [
+                '0.0 (sum)',
+                '2.0 (sum)',
+            ]],
+            [column::TYPE_BOOLEAN, [
+                '0',
+                '2',
+            ]],
+        ];
     }
 
     /**
      * Test aggregation when applied to column with callback
+     *
+     * @param int $columntype
+     * @param string[] $expected
+     *
+     * @dataProvider column_aggregation_with_callback_provider
      */
-    public function test_column_aggregation_with_callback(): void {
+    public function test_column_aggregation_with_callback(int $columntype, array $expected): void {
         $this->resetAfterTest();
 
         // Test subjects.
@@ -101,22 +119,16 @@ class sum_test extends core_reportbuilder_testcase {
         // Set callback to format the column (hack column definition to ensure callbacks are executed).
         $instance = manager::get_report_from_persistent($report);
         $instance->get_column('user:suspended')
-            ->set_type(column::TYPE_INTEGER)
-            ->set_callback(static function(int $value, stdClass $row, $arguments, ?string $aggregation): string {
+            ->set_type($columntype)
+            ->set_callback(static function(int|float $value, stdClass $row, $arguments, ?string $aggregation): string {
                 // Simple callback to return the given value, and append aggregation type.
-                return "{$value} ({$aggregation})";
+                return var_export($value, true) . " ({$aggregation})";
             });
 
         $content = $this->get_custom_report_content($report->get('id'));
         $this->assertEquals([
-            [
-                'c0_firstname' => 'Admin',
-                'c1_suspended' => '0 (sum)',
-            ],
-            [
-                'c0_firstname' => 'Bob',
-                'c1_suspended' => '2 (sum)',
-            ],
-        ], $content);
+            ['Admin', $expected[0]],
+            ['Bob', $expected[1]],
+        ], array_map('array_values', $content));
     }
 }

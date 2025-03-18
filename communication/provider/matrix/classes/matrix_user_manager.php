@@ -24,6 +24,12 @@ namespace communication_matrix;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class matrix_user_manager {
+
+    /**
+     * Prefix for Matrix usernames when they are detected as numeric.
+     */
+    const MATRIX_USER_PREFIX = 'user';
+
     /**
      * Gets matrix user id from moodle.
      *
@@ -56,7 +62,17 @@ class matrix_user_manager {
         $username = preg_replace('/[@#$%^&*()+{}|<>?!,]/i', '.', $username);
         $username = ltrim(rtrim($username, '.'), '.');
 
-        $homeserver = self::get_formatted_matrix_home_server();
+        // Matrix/Synapse servers will not allow numeric usernames.
+        if (is_numeric($username)) {
+            $username = self::MATRIX_USER_PREFIX . $username;
+        }
+
+        $homeserver = get_config('communication_matrix', 'matrixhomeservername');
+
+        // Fall back to homeserver URL if name not set.
+        if (empty($homeserver)) {
+            $homeserver = self::get_formatted_matrix_home_server();
+        }
 
         return "@{$username}:{$homeserver}";
     }

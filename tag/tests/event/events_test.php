@@ -32,7 +32,7 @@ global $CFG;
 // Used to create a wiki page to tag.
 require_once($CFG->dirroot . '/mod/wiki/locallib.php');
 
-class events_test extends \advanced_testcase {
+final class events_test extends \advanced_testcase {
 
     /**
      * Test set up.
@@ -40,13 +40,14 @@ class events_test extends \advanced_testcase {
      * This is executed before running any test in this file.
      */
     public function setUp(): void {
+        parent::setUp();
         $this->resetAfterTest();
     }
 
     /**
      * Test the tag updated event.
      */
-    public function test_tag_updated() {
+    public function test_tag_updated(): void {
         $this->setAdminUser();
 
         // Save the system context.
@@ -95,11 +96,13 @@ class events_test extends \advanced_testcase {
     /**
      * Test the tag added event.
      */
-    public function test_tag_added() {
+    public function test_tag_added(): void {
         global $DB;
 
         // Create a course to tag.
-        $course = $this->getDataGenerator()->create_course();
+        $course = self::getDataGenerator()->create_course();
+        $qbank = self::getDataGenerator()->create_module('qbank', ['course' => $course->id]);
+        $qbankcontext = \context_module::instance($qbank->cmid);
 
         // Trigger and capture the event for tagging a course.
         $sink = $this->redirectEvents();
@@ -114,7 +117,7 @@ class events_test extends \advanced_testcase {
 
         // Create a question to tag.
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
-        $cat = $questiongenerator->create_question_category();
+        $cat = $questiongenerator->create_question_category(['contextid' => $qbankcontext->id]);
         $question = $questiongenerator->create_question('shortanswer', null, array('category' => $cat->id));
 
         // Trigger and capture the event for tagging a question.
@@ -128,13 +131,13 @@ class events_test extends \advanced_testcase {
         // Check that the tag was added to the question and the event data is valid.
         $this->assertEquals(1, $DB->count_records('tag_instance', array('component' => 'core')));
         $this->assertInstanceOf('\core\event\tag_added', $event);
-        $this->assertEquals(\context_system::instance(), $event->get_context());
+        $this->assertEquals($qbankcontext, $event->get_context());
     }
 
     /**
      * Test the tag removed event.
      */
-    public function test_tag_removed() {
+    public function test_tag_removed(): void {
         global $DB;
 
         $this->setAdminUser();
@@ -251,7 +254,7 @@ class events_test extends \advanced_testcase {
     /**
      * Test the tag flagged event.
      */
-    public function test_tag_flagged() {
+    public function test_tag_flagged(): void {
         global $DB;
 
         $this->setAdminUser();
@@ -306,7 +309,7 @@ class events_test extends \advanced_testcase {
     /**
      * Test the tag unflagged event.
      */
-    public function test_tag_unflagged() {
+    public function test_tag_unflagged(): void {
         global $DB;
 
         $this->setAdminUser();
@@ -364,7 +367,7 @@ class events_test extends \advanced_testcase {
     /**
      * Test the tag deleted event
      */
-    public function test_tag_deleted() {
+    public function test_tag_deleted(): void {
         global $DB;
 
         $this->setAdminUser();
@@ -452,7 +455,7 @@ class events_test extends \advanced_testcase {
     /**
      * Test the tag created event.
      */
-    public function test_tag_created() {
+    public function test_tag_created(): void {
         global $DB;
 
         // Trigger and capture the event for creating a tag.

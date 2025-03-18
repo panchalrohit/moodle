@@ -31,7 +31,7 @@ require_once(__DIR__ . '/../test_helper_trait.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \quizaccess_seb\external\validate_quiz_access
  */
-class validate_quiz_access_test extends \advanced_testcase {
+final class validate_quiz_access_test extends \advanced_testcase {
     use \quizaccess_seb_test_helper_trait;
 
     /**
@@ -54,37 +54,37 @@ class validate_quiz_access_test extends \advanced_testcase {
      *
      * @return array
      */
-    public function bad_parameters_provider(): array {
+    public static function bad_parameters_provider(): array {
         return [
             'no params' => [
                 'cmid' => null,
                 'url' => null,
                 'configkey' => null,
-                '/Invalid parameter value detected \(Missing required key in single structure: cmid\)/'
+                'messageregex' => '/Invalid parameter value detected \(Missing required key in single structure: cmid\)/'
             ],
             'no course module id' => [
                 'cmid' => null,
                 'url' => 'https://www.example.com/moodle',
                 'configkey' => hash('sha256', 'configkey'),
-                '/Invalid parameter value detected \(Missing required key in single structure: cmid\)/'
+                'messageregex' => '/Invalid parameter value detected \(Missing required key in single structure: cmid\)/'
             ],
             'no url' => [
                 'cmid' => 123,
                 'url' => null,
                 'configkey' => hash('sha256', 'configkey'),
-                '/Invalid parameter value detected \(Missing required key in single structure: url\)/'
+                'messageregex' => '/Invalid parameter value detected \(Missing required key in single structure: url\)/'
             ],
             'cmid is not an int' => [
                 'cmid' => 'test',
                 'url' => 'https://www.example.com/moodle',
                 'configkey' => null,
-                '/Invalid external api parameter: the value is "test", the server was expecting "int" type/'
+                'messageregex' => '/Invalid external api parameter: the value is "test", the server was expecting "int" type/'
             ],
             'url is not a url' => [
                 'cmid' => 123,
                 'url' => 123,
                 'configkey' => hash('sha256', 'configkey'),
-                '/Invalid external api parameter: the value is "123", the server was expecting "url" type/'
+                'messageregex' => '/Invalid external api parameter: the value is "123", the server was expecting "url" type/'
             ],
         ];
     }
@@ -99,7 +99,7 @@ class validate_quiz_access_test extends \advanced_testcase {
      *
      * @dataProvider bad_parameters_provider
      */
-    public function test_invalid_parameters($cmid, $url, $configkey, $messageregex) {
+    public function test_invalid_parameters($cmid, $url, $configkey, $messageregex): void {
         $params = [];
         if (!empty($cmid)) {
             $params['cmid'] = $cmid;
@@ -119,7 +119,7 @@ class validate_quiz_access_test extends \advanced_testcase {
     /**
      * Test that the user has permissions to access context.
      */
-    public function test_context_is_not_valid_for_user() {
+    public function test_context_is_not_valid_for_user(): void {
         // Set user as user not enrolled in course and quiz.
         $this->user = $this->getDataGenerator()->create_user();
         $this->setUser($this->user);
@@ -132,7 +132,7 @@ class validate_quiz_access_test extends \advanced_testcase {
     /**
      * Test exception thrown when no key provided.
      */
-    public function test_no_keys_provided() {
+    public function test_no_keys_provided(): void {
         $this->expectException(\invalid_parameter_exception::class);
         $this->expectExceptionMessage('At least one Safe Exam Browser key must be provided.');
         validate_quiz_keys::execute($this->quiz->cmid, 'https://www.example.com/moodle');
@@ -141,7 +141,7 @@ class validate_quiz_access_test extends \advanced_testcase {
     /**
      * Test exception thrown if cmid doesn't match a quiz.
      */
-    public function test_quiz_does_not_exist() {
+    public function test_quiz_does_not_exist(): void {
         $this->setAdminUser();
         $forum = $this->getDataGenerator()->create_module('forum', ['course' => $this->course->id]);
         $this->expectException(\invalid_parameter_exception::class);
@@ -152,7 +152,7 @@ class validate_quiz_access_test extends \advanced_testcase {
     /**
      * Test config key is valid.
      */
-    public function test_config_key_valid() {
+    public function test_config_key_valid(): void {
         $sink = $this->redirectEvents();
         // Test settings to populate the quiz.
         $settings = $this->get_test_settings([
@@ -177,7 +177,7 @@ class validate_quiz_access_test extends \advanced_testcase {
     /**
      * Test config key is not valid.
      */
-    public function test_config_key_not_valid() {
+    public function test_config_key_not_valid(): void {
         $sink = $this->redirectEvents();
         // Test settings to populate the quiz.
         $settings = $this->get_test_settings([
@@ -202,7 +202,7 @@ class validate_quiz_access_test extends \advanced_testcase {
     /**
      * Test browser exam key is valid.
      */
-    public function test_browser_exam_key_valid() {
+    public function test_browser_exam_key_valid(): void {
         $sink = $this->redirectEvents();
         // Test settings to populate the quiz.
         $url = 'https://www.example.com/moodle';
@@ -229,7 +229,7 @@ class validate_quiz_access_test extends \advanced_testcase {
     /**
      * Test browser exam key is not valid.
      */
-    public function test_browser_exam_key_not_valid() {
+    public function test_browser_exam_key_not_valid(): void {
         $sink = $this->redirectEvents();
         // Test settings to populate the quiz.
         $validbrowserexamkey = hash('sha256', 'validbrowserexamkey');

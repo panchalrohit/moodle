@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin strings are defined here.
+ * Strings for component 'mod_h5pactivity', language 'en'.
  *
  * @package     mod_h5pactivity
  * @category    string
@@ -50,6 +50,7 @@ $string['attempt_success_fail'] = 'Fail';
 $string['attempt_success_pass'] = 'Pass';
 $string['attempt_success_unknown'] = 'Not reported';
 $string['attempts'] = 'Attempts';
+$string['attempts_report_header_label'] = 'Attempts ({$a})';
 $string['attempts_report'] = 'Attempts report';
 $string['attempts_none'] = 'This user has no attempts to display.';
 $string['choice'] = 'Choice';
@@ -57,7 +58,7 @@ $string['completion'] = 'Completion';
 $string['contentbank'] = 'More information about the content bank';
 $string['contentbank_help'] = 'In the content bank you can create and store content using several authoring tools, including an integrated H5P creator.';
 $string['correct_answer'] = 'Correct answer';
-$string['deleteallattempts'] = 'Delete all H5P attempts';
+$string['deleteallattempts'] = 'All H5P attempts';
 $string['displayexport'] = 'Allow download';
 $string['displayembed'] = 'Embed button';
 $string['displaycopyright'] = 'Copyright button';
@@ -80,7 +81,7 @@ $string['grade_highest_attempt'] = 'Highest grade';
 $string['grade_average_attempt'] = 'Average grade';
 $string['grade_last_attempt'] = 'Last attempt';
 $string['grade_first_attempt'] = 'First attempt';
-$string['grade_h5p'] = 'Grade: {$a}';
+$string['gradenoun_h5p'] = 'Grade: {$a}';
 $string['h5pactivity:addinstance'] = 'Add a new H5P';
 $string['h5pactivity:reviewattempts'] = 'Review H5P attempts';
 $string['h5pactivity:submit'] = 'Submit H5P attempts';
@@ -109,7 +110,7 @@ $string['package_help'] = 'The package file is a h5p file containing H5P interac
 $string['page-mod-h5pactivity-x'] = 'Any H5P module page';
 $string['pluginadministration'] = 'H5P administration';
 $string['pluginname'] = 'H5P';
-$string['previewmode'] = 'This content is displayed in preview mode. No attempt tracking will be stored.';
+$string['previewmode'] = 'You are in preview mode.';
 $string['privacy:metadata:attempt'] = 'The attempt number';
 $string['privacy:metadata:rawscore'] = 'The score obtained';
 $string['privacy:metadata:timecreated'] = 'The time when the tracked element was created';
@@ -127,10 +128,9 @@ $string['result_other'] = 'Unknown interaction type';
 $string['result_sequencing_choice'] = 'Positions';
 $string['result_sequencing_answer'] = 'Position value';
 $string['result_sequencing_position'] = '#{$a}';
-$string['review_all_attempts'] = 'View all attempts ({$a} submitted)';
 $string['review_mode'] = 'Review attempts';
 $string['review_my_attempts'] = 'View my attempts';
-$string['review_user_attempts'] = 'View user attempts ({$a})';
+$string['review_user_attempts'] = 'View ({$a})';
 $string['review_none'] = 'Participants cannot review their own attempts';
 $string['review_on_completion'] = 'Participants can review their own attempts';
 $string['savestatefreq'] = 'Save state frequency';
@@ -141,8 +141,11 @@ $string['search:activity'] = 'H5P - activity information';
 $string['startdate'] = 'Start date';
 $string['statement_received'] = 'xAPI statement received';
 $string['totalscore'] = 'Total score';
+$string['trackingdisabled'] = 'Attempt tracking is not enabled for this activity.';
+$string['trackingdisabled_enable'] = 'Attempt tracking is not enabled for this activity. You can enable it in <a href="{$a}">Settings</a>.';
 $string['tracking_messages'] = 'Some H5P provide attempt tracking data for advanced reporting such as number of attempts, responses and grades. Note: Some H5P don\'t provide attempt tracking data. In such cases, the following settings will have no effect.';
 $string['true'] = 'True';
 $string['usecontentbank'] = 'Use the <a href="{$a}" target="_blank">content bank (opens in new window)</a> to manage your H5P files';
 $string['view'] = 'View';
+$string['viewattempts'] = 'View attempts ({$a})';
 $string['view_report'] = 'View report';

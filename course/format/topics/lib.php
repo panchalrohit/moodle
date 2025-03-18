@@ -76,21 +76,18 @@ class format_topics extends core_courseformat\base {
      * Returns the default section name for the topics course format.
      *
      * If the section number is 0, it will use the string with key = section0name from the course format's lang file.
-     * If the section number is not 0, the base implementation of course_format::get_default_section_name which uses
-     * the string with the key = 'sectionname' from the course format's lang file + the section number will be used.
+     * If the section number is not 0, it will consistently return the name 'newsection', disregarding the specific section number.
      *
-     * @param stdClass $section Section object from database or just field course_sections section
+     * @param int|stdClass $section Section object from database or just field course_sections section
      * @return string The default value for the section name.
      */
     public function get_default_section_name($section) {
-        if ($section->section == 0) {
-            // Return the general section.
+        $section = $this->get_section($section);
+        if ($section->sectionnum == 0) {
             return get_string('section0name', 'format_topics');
-        } else {
-            // Use course_format::get_default_section_name implementation which
-            // will display the section name in "Topic n" format.
-            return parent::get_default_section_name($section);
         }
+
+        return get_string('newsection', 'format_topics');
     }
 
     /**
@@ -99,7 +96,7 @@ class format_topics extends core_courseformat\base {
      * @return string the page title
      */
     public function page_title(): string {
-        return get_string('topicoutline');
+        return get_string('sectionoutline');
     }
 
     /**
@@ -114,7 +111,7 @@ class format_topics extends core_courseformat\base {
      */
     public function get_view_url($section, $options = []) {
         $course = $this->get_course();
-        if (array_key_exists('sr', $options)) {
+        if (array_key_exists('sr', $options) && !is_null($options['sr'])) {
             $sectionno = $options['sr'];
         } else if (is_object($section)) {
             $sectionno = $section->section;
@@ -342,28 +339,6 @@ class format_topics extends core_courseformat\base {
      */
     public function can_delete_section($section) {
         return true;
-    }
-
-    /**
-     * Prepares the templateable object to display section name.
-     *
-     * @param \section_info|\stdClass $section
-     * @param bool $linkifneeded
-     * @param bool $editable
-     * @param null|lang_string|string $edithint
-     * @param null|lang_string|string $editlabel
-     * @return inplace_editable
-     */
-    public function inplace_editable_render_section_name($section, $linkifneeded = true,
-            $editable = null, $edithint = null, $editlabel = null) {
-        if (empty($edithint)) {
-            $edithint = new lang_string('editsectionname', 'format_topics');
-        }
-        if (empty($editlabel)) {
-            $title = get_section_name($section->course, $section);
-            $editlabel = new lang_string('newsectionname', 'format_topics', $title);
-        }
-        return parent::inplace_editable_render_section_name($section, $linkifneeded, $editable, $edithint, $editlabel);
     }
 
     /**

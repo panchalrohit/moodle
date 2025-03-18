@@ -542,7 +542,7 @@ abstract class engine {
      * Executes the query on the engine.
      *
      * Implementations of this function should check user context array to limit the results to contexts where the
-     * user have access. They should also limit the owneruserid field to manger::NO_OWNER_ID or the current user's id.
+     * user has access. They should also limit the owneruserid field to manger::NO_OWNER_ID or the current user's id.
      * Engines must use area->check_access() to confirm user access.
      *
      * Engines should reasonably attempt to fill up to limit with valid results if they are available.
@@ -576,7 +576,7 @@ abstract class engine {
      * @param  int      $limit The maximum number of results to return. If empty, limit to manager::MAX_RESULTS.
      * @return \core_search\document[] Results or false if no results
      */
-    public abstract function execute_query($filters, $accessinfo, $limit = 0);
+    abstract public function execute_query($filters, $accessinfo, $limit = 0);
 
     /**
      * Delete all documents.

@@ -31,7 +31,7 @@ require_once(__DIR__ . '/fixtures/stats_events.php');
  * @copyright  2012 Tyler Bannister
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class statslib_test extends \advanced_testcase {
+final class statslib_test extends \advanced_testcase {
     /** The day to use for testing **/
     const DAY = 1272672000;
 
@@ -186,7 +186,7 @@ class statslib_test extends \advanced_testcase {
      *
      * @return array of fixture XML log file names.
      */
-    public function daily_log_provider() {
+    public static function daily_log_provider(): array {
         $logfiles = array();
         $fileno = array('00', '01', '02', '03', '04', '05', '06', '07', '08');
 
@@ -202,7 +202,7 @@ class statslib_test extends \advanced_testcase {
      *
      * @return array Dates and timezones for which the first day of the week will be calculated
      */
-    public function get_base_weekly_provider() {
+    public static function get_base_weekly_provider(): array {
         return [
             [
                 "startwday" => 0,
@@ -213,13 +213,13 @@ class statslib_test extends \advanced_testcase {
             [
                 "startwday" => 0,
                 "timezone" => 'America/Chicago',
-                "date" => '25-03-2017 22:00',
+                "timestart" => '25-03-2017 22:00',
                 "expected" => '19-03-2017 00:00:00'
             ],
             [
                 "startwday" => 1,
                 "timezone" => 'Atlantic/Canary',
-                "date" => '06-08-2018 22:00',
+                "timestart" => '06-08-2018 22:00',
                 "expected" => '06-08-2018 00:00:00'
             ],
         ];
@@ -276,7 +276,7 @@ class statslib_test extends \advanced_testcase {
     /**
      * Test progress output when debug is on.
      */
-    public function test_statslib_progress_debug() {
+    public function test_statslib_progress_debug(): void {
         set_debugging(DEBUG_ALL);
         $this->expectOutputString('1:0 ');
         stats_progress('init');
@@ -287,7 +287,7 @@ class statslib_test extends \advanced_testcase {
     /**
      * Test progress output when debug is off.
      */
-    public function test_statslib_progress_no_debug() {
+    public function test_statslib_progress_no_debug(): void {
         set_debugging(DEBUG_NONE);
         $this->expectOutputString('.');
         stats_progress('init');
@@ -298,7 +298,7 @@ class statslib_test extends \advanced_testcase {
     /**
      * Test the function that gets the start date from the config.
      */
-    public function test_statslib_get_start_from() {
+    public function test_statslib_get_start_from(): void {
         global $CFG, $DB;
 
         $dataset = $this->load_xml_data_file(__DIR__."/fixtures/statslib-test01.xml");
@@ -387,7 +387,7 @@ class statslib_test extends \advanced_testcase {
      * NOTE: I don't think this is the way this function should work.
      *       This test documents the current functionality.
      */
-    public function test_statslib_get_base_daily() {
+    public function test_statslib_get_base_daily(): void {
         global $CFG;
 
         for ($x = 0; $x < 13; $x += 1) {
@@ -405,7 +405,7 @@ class statslib_test extends \advanced_testcase {
     /**
      * Test the function that gets the start of the next day.
      */
-    public function test_statslib_get_next_day_start() {
+    public function test_statslib_get_next_day_start(): void {
         $this->setTimezone(0);
         $this->assertEquals(1272758400, stats_get_next_day_start(1272686410));
 
@@ -435,7 +435,7 @@ class statslib_test extends \advanced_testcase {
      * @param string $timestart Date and time for which the first day of the week will be obtained
      * @param string $expected Expected date of the first day of the week
      */
-    public function test_statslib_get_base_weekly($startwday, $timezone, $timestart, $expected) {
+    public function test_statslib_get_base_weekly($startwday, $timezone, $timestart, $expected): void {
         $this->setTimezone($timezone);
         $time = strtotime($timestart);
         $expected = strtotime($expected);
@@ -453,72 +453,68 @@ class statslib_test extends \advanced_testcase {
      * Note: The function results depend on installed modules.  The hard coded lists are the
      *       defaults for a new Moodle 2.3 install.
      */
-    public function test_statslib_get_action_names() {
-        $basepostactions = array (
-            0 => 'add',
-            1 => 'delete',
-            2 => 'edit',
-            3 => 'add mod',
-            4 => 'delete mod',
-            5 => 'edit sectionenrol',
-            6 => 'loginas',
-            7 => 'new',
-            8 => 'unenrol',
-            9 => 'update',
-            10 => 'update mod',
-            11 => 'upload',
-            12 => 'submit',
-            13 => 'submit for grading',
-            14 => 'talk',
-            15 => 'choose',
-            16 => 'choose again',
-            17 => 'record delete',
-            18 => 'add discussion',
-            19 => 'add post',
-            20 => 'delete discussion',
-            21 => 'delete post',
-            22 => 'move discussion',
-            23 => 'prune post',
-            24 => 'update post',
-            25 => 'add category',
-            26 => 'add entry',
-            27 => 'approve entry',
-            28 => 'delete category',
-            29 => 'delete entry',
-            30 => 'edit category',
-            31 => 'update entry',
-            32 => 'end',
-            33 => 'start',
-            34 => 'attempt',
-            35 => 'close attempt',
-            36 => 'preview',
-            37 => 'editquestions',
-            38 => 'delete attempt',
-            39 => 'manualgrade',
-        );
+    public function test_statslib_get_action_names(): void {
+        $basepostactions = [
+            'add',
+            'delete',
+            'edit',
+            'add mod',
+            'delete mod',
+            'edit section',
+            'loginas',
+            'new',
+            'unenrol',
+            'update',
+            'update mod',
+            'upload',
+            'submit',
+            'submit for grading',
+            'choose',
+            'choose again',
+            'record delete',
+            'add discussion',
+            'add post',
+            'delete discussion',
+            'delete post',
+            'move discussion',
+            'prune post',
+            'update post',
+            'add category',
+            'add entry',
+            'approve entry',
+            'delete category',
+            'delete entry',
+            'edit category',
+            'update entry',
+            'end',
+            'start',
+            'attempt',
+            'close attempt',
+            'preview',
+            'editquestions',
+            'delete attempt',
+            'manualgrade',
+            'enrol',
+        ];
 
-         $baseviewactions = array (
-            0 => 'view',
-            1 => 'view all',
-            2 => 'history',
-            3 => 'view submission',
-            4 => 'view feedback',
-            5 => 'print',
-            6 => 'report',
-            7 => 'view discussion',
-            8 => 'search',
-            9 => 'forum',
-            10 => 'forums',
-            11 => 'subscribers',
-            12 => 'view forum',
-            13 => 'view entry',
-            14 => 'review',
-            15 => 'pre-view',
-            16 => 'download',
-            17 => 'view form',
-            18 => 'view graph',
-            19 => 'view report',
-        );
+        $baseviewactions = [
+            'view',
+            'view all',
+            'history',
+            'view submission',
+            'view feedback',
+            'print',
+            'report',
+            'view discussion',
+            'search',
+            'forum',
+            'forums',
+            'subscribers',
+            'view forum',
+            'view entry',
+            'review',
+            'pre-view',
+        ];
 
         $postactions = stats_get_action_names('post');
 
@@ -536,7 +532,7 @@ class statslib_test extends \advanced_testcase {
     /**
      * Test the temporary table creation and deletion.
      */
-    public function test_statslib_temp_table_create_and_drop() {
+    public function test_statslib_temp_table_create_and_drop(): void {
         global $DB;
 
         foreach ($this->tables as $table) {
@@ -561,7 +557,7 @@ class statslib_test extends \advanced_testcase {
      *
      * @depends test_statslib_temp_table_create_and_drop
      */
-    public function test_statslib_temp_table_fill() {
+    public function test_statslib_temp_table_fill(): void {
         global $CFG, $DB, $USER;
 
         $dataset = $this->load_xml_data_file(__DIR__."/fixtures/statslib-test09.xml");
@@ -663,7 +659,7 @@ class statslib_test extends \advanced_testcase {
      *
      * @depends test_statslib_temp_table_create_and_drop
      */
-    public function test_statslib_temp_table_setup() {
+    public function test_statslib_temp_table_setup(): void {
         global $DB;
 
         $DB->delete_records('log');
@@ -681,7 +677,7 @@ class statslib_test extends \advanced_testcase {
      *
      * @depends test_statslib_temp_table_create_and_drop
      */
-    public function test_statslib_temp_table_clean() {
+    public function test_statslib_temp_table_clean(): void {
         global $DB;
 
         $rows = array(
@@ -721,7 +717,7 @@ class statslib_test extends \advanced_testcase {
      * @depends test_statslib_temp_table_fill
      * @dataProvider daily_log_provider
      */
-    public function test_statslib_cron_daily($xmlfile) {
+    public function test_statslib_cron_daily($xmlfile): void {
         global $CFG, $DB;
 
         $dataset = $this->load_xml_data_file(__DIR__."/fixtures/{$xmlfile}");
@@ -743,7 +739,7 @@ class statslib_test extends \advanced_testcase {
      * @depends test_statslib_get_base_daily
      * @depends test_statslib_get_next_day_start
      */
-    public function test_statslib_cron_daily_no_default_profile_id() {
+    public function test_statslib_cron_daily_no_default_profile_id(): void {
         global $CFG, $DB;
         $CFG->defaultfrontpageroleid = 0;
 

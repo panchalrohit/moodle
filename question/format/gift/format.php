@@ -281,6 +281,9 @@ class qformat_gift extends qformat_default {
         // Determine question type.
         $question->qtype = null;
 
+        // Extract any idnumber and tags from the comments.
+        list($question->idnumber, $question->tags) = $this->extract_idnumber_and_tags_from_comment($comments);
+
         // Give plugins first try.
         // Plugins must promise not to intercept standard qtypes
         // MDL-12346, this could be called from lesson mod which has its own base class =(.
@@ -324,10 +327,6 @@ class qformat_gift extends qformat_default {
                 $question->qtype = 'shortanswer';
             }
         }
-
-        // Extract any idnumber and tags from the comments.
-        list($question->idnumber, $question->tags) =
-                $this->extract_idnumber_and_tags_from_comment($comments);
 
         if (!isset($question->qtype)) {
             $giftqtypenotset = get_string('giftqtypenotset', 'qformat_gift');
@@ -865,7 +864,7 @@ class qformat_gift extends qformat_default {
 
             if (!empty($tagobjects)) {
                 $context = context::instance_by_id($questiondata->contextid);
-                $sortedtagobjects = question_sort_tags($tagobjects, $context, [$this->course]);
+                $sortedtagobjects = question_sort_tags($tagobjects, $context);
 
                 // Currently we ignore course tags. This should probably be fixed in future.
 

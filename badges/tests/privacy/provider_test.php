@@ -47,13 +47,14 @@ require_once($CFG->libdir . '/badgeslib.php');
  * @author     Frédéric Massart <fred@branchup.tech>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider_test extends provider_testcase {
+final class provider_test extends provider_testcase {
 
     public function setUp(): void {
+        parent::setUp();
         $this->resetAfterTest();
     }
 
-    public function test_get_contexts_for_userid_for_badge_editing() {
+    public function test_get_contexts_for_userid_for_badge_editing(): void {
         $dg = $this->getDataGenerator();
         $u1 = $dg->create_user();
         $u2 = $dg->create_user();
@@ -95,7 +96,7 @@ class provider_test extends provider_testcase {
         $this->assertTrue(in_array($c2ctx->id, $contexts));
     }
 
-    public function test_get_contexts_for_userid_for_manual_award() {
+    public function test_get_contexts_for_userid_for_manual_award(): void {
         global $DB;
 
         $dg = $this->getDataGenerator();
@@ -126,7 +127,7 @@ class provider_test extends provider_testcase {
         $this->assertEquals($u3ctx->id, $contexts[0]);
     }
 
-    public function test_get_contexts_for_userid_for_my_stuff() {
+    public function test_get_contexts_for_userid_for_my_stuff(): void {
         global $DB;
 
         $dg = $this->getDataGenerator();
@@ -168,7 +169,7 @@ class provider_test extends provider_testcase {
         $this->assertEquals($u4ctx->id, $contexts[0]);
     }
 
-    public function test_delete_data_for_user() {
+    public function test_delete_data_for_user(): void {
         global $DB;
 
         $dg = $this->getDataGenerator();
@@ -226,7 +227,7 @@ class provider_test extends provider_testcase {
         $this->assertTrue($DB->record_exists('badge_criteria_met', ['userid' => $u2->id]));
     }
 
-    public function test_delete_data_for_all_users_in_context() {
+    public function test_delete_data_for_all_users_in_context(): void {
         global $DB;
 
         $dg = $this->getDataGenerator();
@@ -291,7 +292,7 @@ class provider_test extends provider_testcase {
         $this->assertTrue($DB->record_exists('badge_criteria_met', ['userid' => $u2->id]));
     }
 
-    public function test_export_data_for_user() {
+    public function test_export_data_for_user(): void {
         global $DB;
 
         $yes = transform::yesno(true);
@@ -341,9 +342,6 @@ class provider_test extends provider_testcase {
         $this->assertEquals($b1->name, $data->name);
         $this->assertEquals($b1->version, $data->version);
         $this->assertEquals($b1->language, $data->language);
-        $this->assertEquals($b1->imageauthorname, $data->imageauthorname);
-        $this->assertEquals($b1->imageauthoremail, $data->imageauthoremail);
-        $this->assertEquals($b1->imageauthorurl, $data->imageauthorurl);
         $this->assertEquals($b1->imagecaption, $data->imagecaption);
         $this->assertNotEmpty($data->issued);
         $this->assertEmpty($data->manual_award);
@@ -442,7 +440,7 @@ class provider_test extends provider_testcase {
     /**
      * Test that only users within a user, system and course context are fetched.
      */
-    public function test_get_users_in_context() {
+    public function test_get_users_in_context(): void {
         $component = 'core_badges';
 
         // Create course1.
@@ -512,7 +510,7 @@ class provider_test extends provider_testcase {
     /**
      * Test that data for users in approved userlist is deleted.
      */
-    public function test_delete_data_for_users() {
+    public function test_delete_data_for_users(): void {
         $component = 'core_badges';
 
         // Create course1.
@@ -639,9 +637,6 @@ class provider_test extends provider_testcase {
             'status' => BADGE_STATUS_ACTIVE,
             'version' => OPEN_BADGES_V2,
             'language' => 'en',
-            'imageauthorname' => 'Image author',
-            'imageauthoremail' => 'author@example.com',
-            'imageauthorurl' => 'http://image.example.com/',
             'imagecaption' => 'Image caption'
         ], $params);
         $record->id = $DB->insert_record('badge', $record);

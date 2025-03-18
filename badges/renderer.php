@@ -186,11 +186,6 @@ class core_badges_renderer extends plugin_renderer_base {
         $dl[get_string('description', 'badges')] = $badge->description;
         $dl[get_string('createdon', 'search')] = userdate($badge->timecreated);
         $dl[get_string('badgeimage', 'badges')] = print_badge_image($badge, $context, 'large');
-        $dl[get_string('imageauthorname', 'badges')] = $badge->imageauthorname;
-        $dl[get_string('imageauthoremail', 'badges')] =
-            html_writer::tag('a', $badge->imageauthoremail, array('href' => 'mailto:' . $badge->imageauthoremail));
-        $dl[get_string('imageauthorurl', 'badges')] =
-            html_writer::link($badge->imageauthorurl, $badge->imageauthorurl, array('target' => '_blank'));
         $dl[get_string('imagecaption', 'badges')] = $badge->imagecaption;
         $tags = \core_tag_tag::get_item_tags('core_badges', 'badge', $badge->id);
         $dl[get_string('tags', 'badges')] = $this->output->tag_list($tags, '');
@@ -201,6 +196,11 @@ class core_badges_renderer extends plugin_renderer_base {
         $dl = array();
         $dl[get_string('issuername', 'badges')] = $badge->issuername;
         $dl[get_string('contact', 'badges')] = html_writer::tag('a', $badge->issuercontact, array('href' => 'mailto:' . $badge->issuercontact));
+        $dl[get_string('issuerurl', 'badges')] = html_writer::tag(
+            'a',
+            $badge->issuerurl,
+            ['href' => $badge->issuerurl, 'target' => '_blank'],
+        );
         $display .= $this->definition_list($dl);
 
         // Issuance details if any.
@@ -242,6 +242,7 @@ class core_badges_renderer extends plugin_renderer_base {
             if ($badge->has_awards()) {
                 $url = new moodle_url('/badges/recipients.php', array('id' => $badge->id));
                 $a = new stdClass();
+                $a->badgename = $badge->name;
                 $a->link = $url->out();
                 $a->count = count($badge->get_awards());
                 $display .= get_string('numawards', 'badges', $a);
@@ -266,64 +267,11 @@ class core_badges_renderer extends plugin_renderer_base {
     }
 
     /**
-     * Prints action icons for the badge.
-     *
      * @deprecated sinde Moodle 4.3
-     * @param \core_badges\badge $badge
-     * @param \context $context
-     * @return string
      */
-    public function print_badge_table_actions($badge, $context) {
-        debugging("print_badge_table_actions() is deprecated.", DEBUG_DEVELOPER);
-        $actions = "";
-
-        if (has_capability('moodle/badges:configuredetails', $context) && $badge->has_criteria()) {
-            // Activate/deactivate badge.
-            if ($badge->status == BADGE_STATUS_INACTIVE || $badge->status == BADGE_STATUS_INACTIVE_LOCKED) {
-                // "Activate" will go to another page and ask for confirmation.
-                $url = new moodle_url('/badges/action.php');
-                $url->param('id', $badge->id);
-                $url->param('activate', true);
-                $url->param('sesskey', sesskey());
-                $return = new moodle_url(qualified_me());
-                $url->param('return', $return->out_as_local_url(false));
-                $actions .= $this->output->action_icon($url, new pix_icon('t/show', get_string('activate', 'badges'))) . " ";
-            } else {
-                $url = new moodle_url(qualified_me());
-                $url->param('lock', $badge->id);
-                $url->param('sesskey', sesskey());
-                $actions .= $this->output->action_icon($url, new pix_icon('t/hide', get_string('deactivate', 'badges'))) . " ";
-            }
-        }
-
-        // Award badge manually.
-        if ($badge->has_manual_award_criteria() &&
-                has_capability('moodle/badges:awardbadge', $context) &&
-                $badge->is_active()) {
-            $url = new moodle_url('/badges/award.php', array('id' => $badge->id));
-            $actions .= $this->output->action_icon($url, new pix_icon('t/award', get_string('award', 'badges'))) . " ";
-        }
-
-        // Edit badge.
-        if (has_capability('moodle/badges:configuredetails', $context)) {
-            $url = new moodle_url('/badges/edit.php', array('id' => $badge->id, 'action' => 'badge'));
-            $actions .= $this->output->action_icon($url, new pix_icon('t/edit', get_string('edit'))) . " ";
-        }
-
-        // Duplicate badge.
-        if (has_capability('moodle/badges:createbadge', $context)) {
-            $url = new moodle_url('/badges/action.php', array('copy' => '1', 'id' => $badge->id, 'sesskey' => sesskey()));
-            $actions .= $this->output->action_icon($url, new pix_icon('t/copy', get_string('copy'))) . " ";
-        }
-
-        // Delete badge.
-        if (has_capability('moodle/badges:deletebadge', $context)) {
-            $url = new moodle_url(qualified_me());
-            $url->param('delete', $badge->id);
-            $actions .= $this->output->action_icon($url, new pix_icon('t/delete', get_string('delete'))) . " ";
-        }
-
-        return $actions;
+    #[\core\attribute\deprecated(null, reason: 'It is no longer used', since: '4.3', mdl: 'MDL-77061', final: true)]
+    public function print_badge_table_actions() {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
@@ -387,7 +335,7 @@ class core_badges_renderer extends plugin_renderer_base {
                     get_string('downloadall'), 'POST', array('class' => 'activatebadge'));
         $downloadall = $this->output->box('', 'col-md-3');
         $downloadall .= $this->output->box($actionhtml, 'col-md-9');
-        $downloadall = $this->output->box($downloadall, 'row ml-5');
+        $downloadall = $this->output->box($downloadall, 'row ms-5');
 
         // Local badges.
         $localhtml = html_writer::start_tag('div', array('id' => 'issued-badge-table', 'class' => 'generalbox'));
@@ -431,7 +379,7 @@ class core_badges_renderer extends plugin_renderer_base {
             $backpacksettings = html_writer::link(new moodle_url('/badges/mybackpack.php'), $label, $attr);
             $actionshtml = $this->output->box('', 'col-md-3');
             $actionshtml .= $this->output->box($backpacksettings, 'col-md-9');
-            $actionshtml = $this->output->box($actionshtml, 'row ml-5');
+            $actionshtml = $this->output->box($actionshtml, 'row ms-5');
             $externalhtml .= $actionshtml;
         }
 
@@ -491,141 +439,18 @@ class core_badges_renderer extends plugin_renderer_base {
     }
 
     /**
-     * Render a table of badges.
-     *
      * @deprecated since Moodle 4.3
-     * @param \core_badges\output\badge_management $badges
-     * @return string
      */
-    protected function render_badge_management(\core_badges\output\badge_management $badges) {
-        debugging("render_badge_management() is deprecated.", DEBUG_DEVELOPER);
-        $paging = new paging_bar($badges->totalcount, $badges->page, $badges->perpage, $this->page->url, 'page');
-
-        // New badge button.
-        $htmlnew = '';
-        $htmlpagingbar = $this->render($paging);
-        $table = new html_table();
-        $table->attributes['class'] = 'table table-bordered table-striped';
-
-        $sortbyname = $this->helper_sortable_heading(get_string('name'),
-                'name', $badges->sort, $badges->dir);
-        $sortbystatus = $this->helper_sortable_heading(get_string('status', 'badges'),
-                'status', $badges->sort, $badges->dir);
-        $table->head = array(
-                $sortbyname,
-                $sortbystatus,
-                get_string('bcriteria', 'badges'),
-                get_string('awards', 'badges'),
-                get_string('actions')
-            );
-        $table->colclasses = array('name', 'status', 'criteria', 'awards', 'actions');
-
-        foreach ($badges->badges as $b) {
-            $style = !$b->is_active() ? array('class' => 'dimmed') : array();
-            $forlink =  print_badge_image($b, $this->page->context) . ' ' .
-                        html_writer::start_tag('span') . $b->name . html_writer::end_tag('span');
-            $name = html_writer::link(new moodle_url('/badges/overview.php', array('id' => $b->id)), $forlink, $style);
-            $status = $b->statstring;
-            $criteria = self::print_badge_criteria($b, 'short');
-
-            if (has_capability('moodle/badges:viewawarded', $this->page->context)) {
-                $awards = html_writer::link(new moodle_url('/badges/recipients.php', array('id' => $b->id)), $b->awards);
-            } else {
-                $awards = $b->awards;
-            }
-
-            $actions = self::print_badge_table_actions($b, $this->page->context);
-
-            $row = array($name, $status, $criteria, $awards, $actions);
-            $table->data[] = $row;
-        }
-        $htmltable = html_writer::table($table);
-
-        return $htmlnew . $htmlpagingbar . $htmltable . $htmlpagingbar;
+    #[\core\attribute\deprecated(null, reason: 'It is no longer used', since: '4.3', mdl: 'MDL-77061', final: true)]
+    protected function render_badge_management() {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
-     * Prints tabs for badge editing.
-     *
-     * @deprecated since Moodle 4.0
-     * @todo MDL-73426 Final deprecation.
-     * @param integer $badgeid The badgeid to edit.
-     * @param context $context The current context.
-     * @param string $current The currently selected tab.
-     * @return string
+     * @deprecated since Moodle 4.0 - Use the manage_badge_action_bar tertiary navigation instead.
      */
-    public function print_badge_tabs($badgeid, $context, $current = 'overview') {
-        global $DB;
-        debugging("print_badge_tabs() is deprecated. " .
-            "This is replaced with the manage_badge_action_bar tertiary navigation.", DEBUG_DEVELOPER);
-
-        $badge = new badge($badgeid);
-        $row = array();
-
-        $row[] = new tabobject('overview',
-                    new moodle_url('/badges/overview.php', array('id' => $badgeid)),
-                    get_string('boverview', 'badges')
-                );
-
-        if (has_capability('moodle/badges:configuredetails', $context)) {
-            $row[] = new tabobject('badge',
-                        new moodle_url('/badges/edit.php', array('id' => $badgeid, 'action' => 'badge')),
-                        get_string('bdetails', 'badges')
-                    );
-        }
-
-        if (has_capability('moodle/badges:configurecriteria', $context)) {
-            $row[] = new tabobject('criteria',
-                        new moodle_url('/badges/criteria.php', array('id' => $badgeid)),
-                        get_string('bcriteria', 'badges')
-                    );
-        }
-
-        if (has_capability('moodle/badges:configuremessages', $context)) {
-            $row[] = new tabobject('message',
-                        new moodle_url('/badges/edit.php', array('id' => $badgeid, 'action' => 'message')),
-                        get_string('bmessage', 'badges')
-                    );
-        }
-
-        if (has_capability('moodle/badges:viewawarded', $context)) {
-            $awarded = $DB->count_records_sql('SELECT COUNT(b.userid)
-                                               FROM {badge_issued} b INNER JOIN {user} u ON b.userid = u.id
-                                               WHERE b.badgeid = :badgeid AND u.deleted = 0', array('badgeid' => $badgeid));
-            $row[] = new tabobject('awards',
-                        new moodle_url('/badges/recipients.php', array('id' => $badgeid)),
-                        get_string('bawards', 'badges', $awarded)
-                    );
-        }
-
-        if (has_capability('moodle/badges:configuredetails', $context)) {
-            $row[] = new tabobject('bendorsement',
-                new moodle_url('/badges/endorsement.php', array('id' => $badgeid)),
-                get_string('bendorsement', 'badges')
-            );
-        }
-
-        if (has_capability('moodle/badges:configuredetails', $context)) {
-            $sql = "SELECT COUNT(br.badgeid)
-                      FROM {badge_related} br
-                     WHERE (br.badgeid = :badgeid OR br.relatedbadgeid = :badgeid2)";
-            $related = $DB->count_records_sql($sql, ['badgeid' => $badgeid, 'badgeid2' => $badgeid]);
-            $row[] = new tabobject('brelated',
-                new moodle_url('/badges/related.php', array('id' => $badgeid)),
-                get_string('brelated', 'badges', $related)
-            );
-        }
-
-        if (has_capability('moodle/badges:configuredetails', $context)) {
-            $alignments = $DB->count_records_sql("SELECT COUNT(bc.id)
-                      FROM {badge_alignment} bc WHERE bc.badgeid = :badgeid", array('badgeid' => $badgeid));
-            $row[] = new tabobject('alignment',
-                new moodle_url('/badges/alignment.php', array('id' => $badgeid)),
-                get_string('balignment', 'badges', $alignments)
-            );
-        }
-
-        echo $this->tabtree($row, $current);
+    public function print_badge_tabs() {
+        throw new coding_exception(__FUNCTION__ . '() has been removed.');
     }
 
     /**
@@ -650,17 +475,34 @@ class core_badges_renderer extends plugin_renderer_base {
 
                 $message = $status . $action;
             } else {
+                $this->page->requires->js_call_amd('core_badges/actions', 'init');
+
                 $status = get_string('statusmessage_' . $badge->status, 'badges');
                 if ($badge->is_active()) {
-                    $action = $this->output->single_button(new moodle_url('/badges/action.php',
-                                array('id' => $badge->id, 'lock' => 1, 'sesskey' => sesskey(),
-                                      'return' => $this->page->url->out_as_local_url(false))),
-                            get_string('deactivate', 'badges'), 'POST', array('class' => 'activatebadge'));
+                    $action = $this->output->single_button(
+                        new moodle_url('#'),
+                        get_string('deactivate', 'badges'),
+                        'POST',
+                        [
+                            'class' => 'activatebadge',
+                            'data-action' => 'disablebadge',
+                            'data-badgeid' => $badge->id,
+                            'data-badgename' => $badge->name,
+                            'data-courseid' => $badge->courseid,
+                        ],
+                    );
                 } else {
-                    $action = $this->output->single_button(new moodle_url('/badges/action.php',
-                                array('id' => $badge->id, 'activate' => 1, 'sesskey' => sesskey(),
-                                      'return' => $this->page->url->out_as_local_url(false))),
-                            get_string('activate', 'badges'), 'POST', array('class' => 'activatebadge'));
+                    $action = $this->output->single_button(
+                        new moodle_url('#'),
+                        get_string('activate', 'badges'),
+                        'POST',
+                        [
+                            'class' => 'activatebadge',
+                            'data-action' => 'enablebadge',
+                            'data-badgeid' => $badge->id,
+                            'data-badgename' => $badge->name,
+                            'data-courseid' => $badge->courseid,
+                        ]);
                 }
 
                 $message = $status . $this->output->help_icon('status', 'badges') . $action;
@@ -744,7 +586,9 @@ class core_badges_renderer extends plugin_renderer_base {
             }
         }
 
-        return $overalldescr . $condition . html_writer::alist($items, array(), 'ul');;
+        $criteriadesc = count($items) > 1 ? html_writer::alist($items, [], 'ul') : reset($items);
+
+        return $overalldescr . $condition . $criteriadesc;
     }
 
     /**
@@ -860,13 +704,13 @@ class core_badges_renderer extends plugin_renderer_base {
                 $url = new moodle_url($this->page->url);
                 $url->params(array('sort' => $sortid, 'dir' => 'ASC'));
                 $out .= $this->output->action_icon($url,
-                        new pix_icon('t/sort_asc', get_string('sortbyx', 'core', s($text)), null, array('class' => 'iconsort')));
+                        new pix_icon('t/sort_asc', get_string('sortbyx', 'core', s($text)), null));
             }
             if ($sortby !== $sortid || $sorthow !== 'DESC') {
                 $url = new moodle_url($this->page->url);
                 $url->params(array('sort' => $sortid, 'dir' => 'DESC'));
                 $out .= $this->output->action_icon($url,
-                        new pix_icon('t/sort_desc', get_string('sortbyxreverse', 'core', s($text)), null, array('class' => 'iconsort')));
+                        new pix_icon('t/sort_desc', get_string('sortbyxreverse', 'core', s($text)), null));
             }
         }
         return $out;

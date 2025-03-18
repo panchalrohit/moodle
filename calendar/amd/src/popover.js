@@ -22,8 +22,7 @@
  * @since 4.0
  */
 
-import 'theme_boost/popover';
-import jQuery from 'jquery';
+import Popover from 'theme_boost/bootstrap/popover';
 import * as CalendarSelectors from 'core_calendar/selectors';
 
 /**
@@ -36,32 +35,31 @@ const isPopoverAvailable = (dateContainer) => {
 };
 
 const isPopoverConfigured = new Map();
-
 const showPopover = target => {
-    if (!isPopoverConfigured.has(target)) {
-        const dateEle = jQuery(target);
-        dateEle.popover({
+    const dateContainer = target.closest(CalendarSelectors.elements.dateContainer);
+    if (!isPopoverConfigured.has(dateContainer)) {
+        const config = {
             trigger: 'manual',
             placement: 'top',
             html: true,
+            title: dateContainer.dataset.title,
             content: () => {
-                const source = dateEle.find(CalendarSelectors.elements.dateContent);
-                const content = jQuery('<div>');
-                if (source.length) {
-                    const temptContent = source.find('.hidden').clone(false);
-                    content.html(temptContent.html());
-                }
-                return content.html();
-            }
-        });
+                const source = dateContainer.querySelector(CalendarSelectors.elements.dateContent);
+                return source ? source.querySelector('.hidden').innerHTML : '';
+            },
+            'animation': false,
+        };
+        new Popover(target, config);
 
-        isPopoverConfigured.set(target, true);
+        isPopoverConfigured.set(dateContainer, true);
     }
 
-    if (isPopoverAvailable(target)) {
-        jQuery(target).popover('show');
+    if (isPopoverAvailable(dateContainer)) {
+        Popover.getInstance(target).show();
         target.addEventListener('mouseleave', hidePopover);
         target.addEventListener('focusout', hidePopover);
+        // Set up the hide function to the click event type.
+        target.addEventListener('click', hidePopover);
     }
 };
 
@@ -74,10 +72,23 @@ const hidePopover = e => {
     if (isPopoverConfigured.has(dateContainer)) {
         const isTargetActive = target.contains(document.activeElement);
         const isTargetHover = target.matches(':hover');
+
+        // Checks if a target element is clicked or pressed.
+        const isTargetClicked = document.activeElement.contains(target);
+
+        let removeListener = true;
         if (!isTargetActive && !isTargetHover) {
-            jQuery(dateContainer).popover('hide');
-            dateContainer.removeEventListener('mouseleave', hidePopover);
-            dateContainer.removeEventListener('focusout', hidePopover);
+            Popover.getOrCreateInstance(target).hide();
+        } else if (isTargetClicked) {
+            Popover.getOrCreateInstance(document.activeElement).hide();
+        } else {
+            removeListener = false;
+        }
+
+        if (removeListener) {
+            target.removeEventListener('mouseleave', hidePopover);
+            target.removeEventListener('focusout', hidePopover);
+            target.removeEventListener('click', hidePopover);
         }
     }
 };
@@ -87,13 +98,13 @@ const hidePopover = e => {
  */
 const registerEventListeners = () => {
     const showPopoverHandler = (e) => {
-        const dateContainer = e.target.closest(CalendarSelectors.elements.dateContainer);
-        if (!dateContainer) {
+        const dayLink = e.target.closest(CalendarSelectors.links.dayLink);
+        if (!dayLink) {
             return;
         }
 
         e.preventDefault();
-        showPopover(dateContainer);
+        showPopover(dayLink);
     };
 
     document.addEventListener('mouseover', showPopoverHandler);

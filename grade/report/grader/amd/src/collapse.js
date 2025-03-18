@@ -24,7 +24,7 @@ import * as Repository from 'gradereport_grader/collapse/repository';
 import search_combobox from 'core/comboboxsearch/search_combobox';
 import {renderForPromise, replaceNodeContents, replaceNode} from 'core/templates';
 import {debounce} from 'core/utils';
-import $ from 'jquery';
+import Dropdown from 'theme_boost/bootstrap/dropdown';
 import {getStrings} from 'core/str';
 import CustomEvents from "core/custom_interaction_events";
 import storage from 'core/localstorage';
@@ -56,6 +56,8 @@ const selectors = {
     count: '[data-collapse="count"]',
     placeholder: '.collapsecolumndropdown [data-region="placeholder"]',
     fullDropdown: '.collapsecolumndropdown',
+    searchResultContainer: '.searchresultitemscontainer',
+    cellMenuButton: '.cellmenubtn',
 };
 
 const countIndicator = document.querySelector(selectors.count);
@@ -98,6 +100,19 @@ export default class ColumnSearch extends search_combobox {
                 document.querySelector('.gradereport-grader-table').classList.remove('d-none');
             }, 10);
         }).then(() => pendingPromise.resolve()).catch(Notification.exception);
+
+        this.component.addEventListener('hide.bs.dropdown', () => {
+            const searchResultContainer = this.component.querySelector(selectors.searchResultContainer);
+            searchResultContainer.scrollTop = 0;
+
+            // Use setTimeout to make sure the following code is executed after the click event is handled.
+            setTimeout(() => {
+                if (this.searchInput.value !== '') {
+                    this.searchInput.value = '';
+                    this.searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+                }
+            });
+        });
     }
 
     /**
@@ -116,15 +131,6 @@ export default class ColumnSearch extends search_combobox {
      */
     dropdownSelector() {
         return '.searchresultitemscontainer';
-    }
-
-    /**
-     * The triggering div that contains the searching widget.
-     *
-     * @returns {string}
-     */
-    triggerSelector() {
-        return '.collapsecolumn';
     }
 
     /**
@@ -191,6 +197,7 @@ export default class ColumnSearch extends search_combobox {
     async docClickHandler(e) {
         if (e.target.dataset.hider === selectors.hider) {
             e.preventDefault();
+            const pendingPromise = new Pending('gradereport_grader/collapse:docClickHandler:hide');
             const desiredToHide = e.target.closest(selectors.colVal) ?
                 e.target.closest(selectors.colVal)?.dataset.col :
                 e.target.closest(selectors.itemVal)?.dataset.itemid;
@@ -200,11 +207,13 @@ export default class ColumnSearch extends search_combobox {
             }
             await this.prefcountpipe();
 
-            this.nodesUpdate(desiredToHide);
+            await this.nodesUpdate(desiredToHide);
+            pendingPromise.resolve();
         }
 
         if (e.target.closest('button')?.dataset.hider === selectors.expand) {
             e.preventDefault();
+            const pendingPromise = new Pending('gradereport_grader/collapse:docClickHandler:expand');
             const desiredToHide = e.target.closest(selectors.colVal) ?
                 e.target.closest(selectors.colVal)?.dataset.col :
                 e.target.closest(selectors.itemVal)?.dataset.itemid;
@@ -213,27 +222,9 @@ export default class ColumnSearch extends search_combobox {
 
             await this.prefcountpipe();
 
-            this.nodesUpdate(e.target.closest(selectors.colVal)?.dataset.col);
-            this.nodesUpdate(e.target.closest(selectors.colVal)?.dataset.itemid);
-        }
-    }
-
-    /**
-     * The handler for when a user presses a key within the component.
-     *
-     * @param {KeyboardEvent} e The triggering event that we are working with.
-     */
-    async keyHandler(e) {
-        super.keyHandler(e);
-
-        // Switch the key presses to handle keyboard nav.
-        switch (e.key) {
-            case 'Tab':
-                if (e.target.closest(this.selectors.input)) {
-                    e.preventDefault();
-                    this.clearSearchButton.focus({preventScroll: true});
-                }
-                break;
+            await this.nodesUpdate(e.target.closest(selectors.colVal)?.dataset.col);
+            await this.nodesUpdate(e.target.closest(selectors.colVal)?.dataset.itemid);
+            pendingPromise.resolve();
         }
     }
 
@@ -243,6 +234,11 @@ export default class ColumnSearch extends search_combobox {
     registerInputEvents() {
         // Register & handle the text input.
         this.searchInput.addEventListener('input', debounce(async() => {
+            if (this.getSearchTerm() === this.searchInput.value && this.searchResultsVisible()) {
+                window.console.warn(`Search term matches input value - skipping`);
+                // Debounce can happen multiple times quickly.
+                return;
+            }
             this.setSearchTerms(this.searchInput.value);
             // We can also require a set amount of input before search.
             if (this.searchInput.value === '') {
@@ -252,9 +248,13 @@ export default class ColumnSearch extends search_combobox {
                 // Display the "clear" search button in the search bar.
                 this.clearSearchButton.classList.remove('d-none');
             }
+            const pendingPromise = new Pending();
             // User has given something for us to filter against.
-            await this.filterrenderpipe();
-        }, 300));
+            await this.filterrenderpipe().then(() => {
+                pendingPromise.resolve();
+                return true;
+            });
+        }, 300, {pending: true}));
     }
 
     /**
@@ -319,7 +319,7 @@ export default class ColumnSearch extends search_combobox {
         form.addEventListener('submit', async(e) => {
             e.preventDefault();
             if (e.submitter.dataset.action === selectors.formItems.cancel) {
-                $(this.component).dropdown('toggle');
+                Dropdown.getOrCreateInstance(this.component).toggle();
                 return;
             }
             // Get the users' checked columns to change.
@@ -336,11 +336,14 @@ export default class ColumnSearch extends search_combobox {
         });
     }
 
-    nodesUpdate(item) {
+    async nodesUpdate(item) {
         const colNodesToHide = [...document.querySelectorAll(`[data-col="${item}"]`)];
         const itemIDNodesToHide = [...document.querySelectorAll(`[data-itemid="${item}"]`)];
-        this.nodes = [...colNodesToHide, ...itemIDNodesToHide];
-        this.updateDisplay();
+        const elements = [...colNodesToHide, ...itemIDNodesToHide];
+        if (elements && elements.length) {
+            const pendingPromise = new Pending('gradereport_grader/collapse:nodesUpdate:' + item);
+            this.updateDisplay(elements).then(() => pendingPromise.resolve()).catch(Notification.exception);
+        }
     }
 
     /**
@@ -405,58 +408,68 @@ export default class ColumnSearch extends search_combobox {
 
     /**
      * With an array of nodes, switch their classes and values.
+     *
+     * @param {Array} elements The elements to update.
      */
-    updateDisplay() {
-        this.nodes.forEach((element) => {
-            const content = element.querySelector(selectors.content);
-            const sort = element.querySelector(selectors.sort);
-            const expandButton = element.querySelector(selectors.expandbutton);
-            const rangeRowCell = element.querySelector(selectors.rangerowcell);
-            const avgRowCell = element.querySelector(selectors.avgrowcell);
-            const nodeSet = [
-                element.querySelector(selectors.menu),
-                element.querySelector(selectors.icons),
-                content
-            ];
-
-            // This can be further improved to reduce redundant similar calls.
-            if (element.classList.contains('cell')) {
-                // The column is actively being sorted, lets reset that and reload the page.
-                if (sort !== null) {
-                    window.location = this.defaultSort;
-                }
-                if (content === null) {
-                    // If it's not a content cell, it must be an overall average or a range cell.
-                    const rowCell = avgRowCell ?? rangeRowCell;
-
-                    rowCell?.classList.toggle('d-none');
-                    rowCell?.setAttribute('aria-hidden',
-                        rowCell?.classList.contains('d-none') ? 'true' : 'false');
-                } else if (content.classList.contains('d-none')) {
-                    // We should always have content but some cells do not contain menus or other actions.
-                    element.classList.remove('collapsed');
-                    // If there are many nodes, apply the following.
-                    if (content.childNodes.length > 1) {
-                        content.classList.add('d-flex');
-                    }
-                    nodeSet.forEach(node => {
-                        node?.classList.remove('d-none');
-                        node?.setAttribute('aria-hidden', 'false');
-                    });
-                    expandButton?.classList.add('d-none');
-                    expandButton?.setAttribute('aria-hidden', 'true');
-                } else {
-                    element.classList.add('collapsed');
-                    content.classList.remove('d-flex');
-                    nodeSet.forEach(node => {
-                        node?.classList.add('d-none');
-                        node?.setAttribute('aria-hidden', 'true');
-                    });
-                    expandButton?.classList.remove('d-none');
-                    expandButton?.setAttribute('aria-hidden', 'false');
-                }
-            }
+    async updateDisplay(elements) {
+        const promises = [];
+        elements.forEach((element) => {
+            promises.push(this.updateDisplayForElement(element));
         });
+
+        await Promise.all(promises);
+    }
+
+    /**
+     * Update display for given element, switch its classes and values.
+     *
+     * @param {HTMLElement} element The element to update.
+     */
+    async updateDisplayForElement(element) {
+        const content = element.querySelector(selectors.content);
+        const sort = element.querySelector(selectors.sort);
+        const expandButton = element.querySelector(selectors.expandbutton);
+        const rangeRowCell = element.querySelector(selectors.rangerowcell);
+        const avgRowCell = element.querySelector(selectors.avgrowcell);
+        const cellMenuButton = element.querySelector(selectors.cellMenuButton);
+        const nodeSet = [
+            element.querySelector(selectors.menu),
+            element.querySelector(selectors.icons),
+            content
+        ];
+
+        // This can be further improved to reduce redundant similar calls.
+        if (element.classList.contains('cell')) {
+            // The column is actively being sorted, lets reset that and reload the page.
+            if (sort !== null) {
+                window.location = this.defaultSort;
+            }
+            if (content === null) {
+                // If it's not a content cell, it must be an overall average or a range cell.
+                const rowCell = avgRowCell ?? rangeRowCell;
+
+                rowCell?.classList.toggle('d-none');
+            } else if (content.classList.contains('d-none')) {
+                // We should always have content but some cells do not contain menus or other actions.
+                element.classList.remove('collapsed');
+                // If there are many nodes, apply the following.
+                if (content.childNodes.length > 1) {
+                    content.classList.add('d-flex');
+                }
+                nodeSet.forEach(node => {
+                    node?.classList.remove('d-none');
+                });
+                expandButton?.classList.add('d-none');
+                cellMenuButton?.focus();
+            } else {
+                element.classList.add('collapsed');
+                content.classList.remove('d-flex');
+                nodeSet.forEach(node => {
+                    node?.classList.add('d-none');
+                });
+                expandButton?.classList.remove('d-none');
+            }
+        }
     }
 
     /**
@@ -483,6 +496,7 @@ export default class ColumnSearch extends search_combobox {
         // Update the collapsed button pill.
         this.countUpdate();
         const {html, js} = await renderForPromise('gradereport_grader/collapse/collapsebody', {
+            'instance': this.instance,
             'results': this.getMatchedResults(),
             'userid': this.userID,
         });
@@ -494,8 +508,9 @@ export default class ColumnSearch extends search_combobox {
         this.registerInputEvents();
 
         // Add a small BS listener so that we can set the focus correctly on open.
-        this.$component.on('shown.bs.dropdown', () => {
+        this.component.addEventListener('shown.bs.dropdown', () => {
             this.searchInput.focus({preventScroll: true});
+            this.selectallEnable();
         });
     }
 
@@ -503,14 +518,26 @@ export default class ColumnSearch extends search_combobox {
      * Build the content then replace the node.
      */
     async renderDropdown() {
-        const form = this.component.querySelector(selectors.formDropdown);
-        const selectall = form.querySelector('[data-action="selectall"]');
         const {html, js} = await renderForPromise('gradereport_grader/collapse/collapseresults', {
+            instance: this.instance,
             'results': this.getMatchedResults(),
             'searchTerm': this.getSearchTerm(),
         });
-        selectall.disabled = this.getMatchedResults().length === 0;
         replaceNodeContents(this.getHTMLElements().searchDropdown, html, js);
+        this.selectallEnable();
+        // Reset the expand button to be disabled as we have re-rendered the dropdown.
+        const form = this.component.querySelector(selectors.formDropdown);
+        const expandButton = form.querySelector(`[data-action="${selectors.formItems.save}"`);
+        expandButton.disabled = true;
+    }
+
+    /**
+     * Given we render the dropdown, Determine if we want to enable the select all checkbox.
+     */
+    selectallEnable() {
+        const form = this.component.querySelector(selectors.formDropdown);
+        const selectall = form.querySelector('[data-action="selectall"]');
+        selectall.disabled = this.getMatchedResults().length === 0;
     }
 
     /**

@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+import Config from 'core/config';
 import {getString} from 'core/str';
 import {Reactive} from 'core/reactive';
 import notification from 'core/notification';
@@ -52,9 +53,9 @@ export default class extends Reactive {
      * The current page section return
      * @attribute sectionReturn
      * @type number
-     * @default 0
+     * @default null
      */
-    sectionReturn = 0;
+    sectionReturn = null;
 
     /**
      * Set up the course editor when the page is ready.
@@ -130,6 +131,8 @@ export default class extends Reactive {
         }
 
         this._loadFileHandlers();
+
+        this._pageAnchorCmInfo = this._scanPageAnchorCmInfo();
     }
 
     /**
@@ -216,6 +219,16 @@ export default class extends Reactive {
      * @returns {Object} the current course state
      */
     async getServerCourseState() {
+        // Only logged users can get the course state. Filtering here will prevent unnecessary
+        // calls to the server and login page redirects. Especially for home activities with
+        // guest access.
+        if (Config.userId == 0) {
+            return {
+                course: {},
+                section: [],
+                cm: [],
+            };
+        }
         const courseState = await ajax.call([{
             methodname: 'core_courseformat_get_state',
             args: {
@@ -362,5 +375,27 @@ export default class extends Reactive {
             // Force unlock all elements.
             super.dispatch('unlockAll');
         }
+    }
+
+    /**
+     * Calculate the cm info from the current page anchor.
+     *
+     * @returns {Object|null} the cm info or null if not found.
+     */
+    _scanPageAnchorCmInfo() {
+        const anchor = new URL(window.location.href).hash;
+        if (!anchor.startsWith('#module-')) {
+            return null;
+        }
+        // The anchor is always #module-CMID.
+        const cmid = anchor.split('-')[1];
+        return this.stateManager.get('cm', parseInt(cmid));
+    }
+
+    /**
+     * Return the current page anchor cm info.
+     */
+    getPageAnchorCmInfo() {
+        return this._pageAnchorCmInfo;
     }
 }

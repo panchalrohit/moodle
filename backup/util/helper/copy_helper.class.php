@@ -96,7 +96,6 @@ final class copy_helper {
 
         // Create the ad-hoc task to perform the course copy.
         $asynctask = new \core\task\asynchronous_copy_task();
-        $asynctask->set_blocking(false);
         $asynctask->set_custom_data($copyids);
         \core\task\manager::queue_adhoc_task($asynctask);
 
@@ -225,11 +224,6 @@ final class copy_helper {
      * @return array An array of mappings between backup ids and restore controllers
      */
     private static function map_backupids_to_restore_controller(array $backuprecords): array {
-        // Needed for PHP 7.3 - array_merge only accepts 0 parameters in PHP >= 7.4.
-        if (empty($backuprecords)) {
-            return [];
-        }
-
         return array_merge(
             ...array_map(
                 function (\stdClass $backuprecord): array {

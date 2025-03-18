@@ -37,7 +37,7 @@ use core_privacy\tests\provider_testcase;
  * @copyright 2018 David Mudrák <david@moodle.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider_test extends provider_testcase {
+final class provider_test extends provider_testcase {
 
     /** @var testing_data_generator */
     protected $generator;
@@ -124,6 +124,7 @@ class provider_test extends provider_testcase {
      */
     protected function setUp(): void {
         global $DB;
+        parent::setUp();
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -178,7 +179,7 @@ class provider_test extends provider_testcase {
     /**
      * Test {@link \mod_workshop\privacy\provider::get_contexts_for_userid()} implementation.
      */
-    public function test_get_contexts_for_userid() {
+    public function test_get_contexts_for_userid(): void {
 
         $cm11 = get_coursemodule_from_instance('workshop', $this->workshop11->id);
         $cm12 = get_coursemodule_from_instance('workshop', $this->workshop12->id);
@@ -191,25 +192,25 @@ class provider_test extends provider_testcase {
         // Student1 has data in workshop11 (author + self reviewer), workshop12 (author) and workshop21 (reviewer).
         $contextlist = \mod_workshop\privacy\provider::get_contexts_for_userid($this->student1->id);
         $this->assertInstanceOf(\core_privacy\local\request\contextlist::class, $contextlist);
-        $this->assertEqualsCanonicalizing([$context11->id, $context12->id, $context21->id], $contextlist->get_contextids());
+        $this->assertEqualsCanonicalizing([$context11->id, $context12->id, $context21->id], array_values($contextlist->get_contextids()));
 
         // Student2 has data in workshop11 (reviewer), workshop12 (reviewer) and workshop21 (author).
         $contextlist = \mod_workshop\privacy\provider::get_contexts_for_userid($this->student2->id);
-        $this->assertEqualsCanonicalizing([$context11->id, $context12->id, $context21->id], $contextlist->get_contextids());
+        $this->assertEqualsCanonicalizing([$context11->id, $context12->id, $context21->id], array_values($contextlist->get_contextids()));
 
         // Student3 has data in workshop11 (reviewer).
         $contextlist = \mod_workshop\privacy\provider::get_contexts_for_userid($this->student3->id);
-        $this->assertEqualsCanonicalizing([$context11->id], $contextlist->get_contextids());
+        $this->assertEqualsCanonicalizing([$context11->id], array_values($contextlist->get_contextids()));
 
         // Teacher4 has data in workshop12 (gradeoverby) and workshop21 (gradinggradeoverby).
         $contextlist = \mod_workshop\privacy\provider::get_contexts_for_userid($this->teacher4->id);
-        $this->assertEqualsCanonicalizing([$context21->id, $context12->id], $contextlist->get_contextids());
+        $this->assertEqualsCanonicalizing([$context21->id, $context12->id], array_values($contextlist->get_contextids()));
     }
 
     /**
      * Test {@link \mod_workshop\privacy\provider::get_users_in_context()} implementation.
      */
-    public function test_get_users_in_context() {
+    public function test_get_users_in_context(): void {
 
         $cm11 = get_coursemodule_from_instance('workshop', $this->workshop11->id);
         $cm12 = get_coursemodule_from_instance('workshop', $this->workshop12->id);
@@ -256,7 +257,7 @@ class provider_test extends provider_testcase {
     /**
      * Test {@link \mod_workshop\privacy\provider::export_user_data()} implementation.
      */
-    public function test_export_user_data_1() {
+    public function test_export_user_data_1(): void {
 
         $contextlist = new \core_privacy\local\request\approved_contextlist($this->student1, 'mod_workshop', [
             \context_module::instance($this->workshop11->cmid)->id,
@@ -269,7 +270,7 @@ class provider_test extends provider_testcase {
 
         $workshop = $writer->get_data([]);
         $this->assertEquals('Workshop11', $workshop->name);
-        $this->assertObjectHasAttribute('phase', $workshop);
+        $this->assertObjectHasProperty('phase', $workshop);
 
         $mysubmission = $writer->get_data([
             get_string('mysubmission', 'mod_workshop'),
@@ -308,7 +309,7 @@ class provider_test extends provider_testcase {
     /**
      * Test {@link \mod_workshop\privacy\provider::export_user_data()} implementation.
      */
-    public function test_export_user_data_2() {
+    public function test_export_user_data_2(): void {
 
         $contextlist = new \core_privacy\local\request\approved_contextlist($this->student2, 'mod_workshop', [
             \context_module::instance($this->workshop11->cmid)->id,
@@ -328,7 +329,7 @@ class provider_test extends provider_testcase {
     /**
      * Test {@link \mod_workshop\privacy\provider::delete_data_for_all_users_in_context()} implementation.
      */
-    public function test_delete_data_for_all_users_in_context() {
+    public function test_delete_data_for_all_users_in_context(): void {
         global $DB;
 
         $this->assertTrue($DB->record_exists('workshop_submissions', ['workshopid' => $this->workshop11->id]));
@@ -345,7 +346,7 @@ class provider_test extends provider_testcase {
     /**
      * Test {@link \mod_workshop\privacy\provider::delete_data_for_user()} implementation.
      */
-    public function test_delete_data_for_user() {
+    public function test_delete_data_for_user(): void {
         global $DB;
 
         $student1submissions = $DB->get_records('workshop_submissions', [
@@ -429,7 +430,7 @@ class provider_test extends provider_testcase {
     /**
      * Test {@link \mod_workshop\privacy\provider::delete_data_for_users()} implementation.
      */
-    public function test_delete_data_for_users() {
+    public function test_delete_data_for_users(): void {
         global $DB;
 
         // Student1 has submissions in two workshops.

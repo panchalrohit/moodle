@@ -111,7 +111,7 @@ class processor {
     /**
      * Update the communication instance with any changes.
      *
-     * @param null|int $active Active state of the instance (processor::PROVIDER_ACTIVE or processor::PROVIDER_INACTIVE)
+     * @param null|string $active Active state of the instance (processor::PROVIDER_ACTIVE or processor::PROVIDER_INACTIVE)
      * @param null|string $roomname The room name
      */
     public function update_instance(
@@ -490,6 +490,15 @@ class processor {
     }
 
     /**
+     * Get provider active status.
+     *
+     * @return int
+     */
+    public function get_provider_status(): int {
+        return $this->instancedata->active;
+    }
+
+    /**
      * Get communication instance id.
      *
      * @return room_chat_provider
@@ -588,7 +597,7 @@ class processor {
      */
     public function requires_form_features(): void {
         if (!$this->supports_form_features()) {
-            throw new \coding_exception('Form features are not supported by the provider');
+            throw new \coding_exception('Form features are not supported by the provider ' . get_class($this->provider));
         }
     }
 
@@ -606,7 +615,7 @@ class processor {
      */
     public function require_user_features(): void {
         if (!$this->supports_user_features()) {
-            throw new \coding_exception('User features are not supported by the provider');
+            throw new \coding_exception('User features are not supported by the provider ' . get_class($this->provider));
         }
     }
 
@@ -633,7 +642,7 @@ class processor {
      */
     public function require_room_features(): void {
         if (!$this->supports_room_features()) {
-            throw new \coding_exception('room features are not supported by the provider');
+            throw new \coding_exception('room features are not supported by the provider ' . get_class($this->provider));
         }
     }
 
@@ -642,7 +651,7 @@ class processor {
      */
     public function require_room_user_features(): void {
         if (!$this->supports_room_user_features()) {
-            throw new \coding_exception('room features are not supported by the provider');
+            throw new \coding_exception('room user features are not supported by the provider ' . get_class($this->provider));
         }
     }
 
@@ -660,7 +669,7 @@ class processor {
      */
     public function require_sync_provider_features(): void {
         if (!$this->supports_sync_provider_features()) {
-            throw new \coding_exception('sync features are not supported by the provider');
+            throw new \coding_exception('sync features are not supported by the provider ' . get_class($this->provider));
         }
     }
 

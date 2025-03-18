@@ -40,12 +40,12 @@ use core_privacy\local\request\approved_userlist;
  * @copyright  2018 Carlos Escobedo <carlos@moodle.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider_test extends provider_testcase {
+final class provider_test extends provider_testcase {
     /**
      * Test to check export_user_preferences.
      * returns user preferences data.
      */
-    public function test_export_user_preferences() {
+    public function test_export_user_preferences(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
         $user = $this->getDataGenerator()->create_user();
@@ -64,7 +64,7 @@ class provider_test extends provider_testcase {
     /**
      * Check all contexts are returned if there is any user data for this user.
      */
-    public function test_get_contexts_for_userid() {
+    public function test_get_contexts_for_userid(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -77,7 +77,7 @@ class provider_test extends provider_testcase {
         $course = $this->getDataGenerator()->create_course();
         $course2 = $this->getDataGenerator()->create_course();
         $coursecat = $this->getDataGenerator()->create_category();
-        $cm = $this->getDataGenerator()->create_module('chat', ['course' => $course->id]);
+        $cm = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cmcontext = \context_module::instance($cm->cmid);
         $page = $this->getDataGenerator()->create_module('page', array('course' => $course->id));
         $cmcontext2 = \context_module::instance($page->cmid);
@@ -114,7 +114,7 @@ class provider_test extends provider_testcase {
     /**
      * Test that user data is exported correctly.
      */
-    public function test_export_user_data() {
+    public function test_export_user_data(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -125,7 +125,7 @@ class provider_test extends provider_testcase {
         $course = $this->getDataGenerator()->create_course();
         $course2 = $this->getDataGenerator()->create_course();
         $coursecat = $this->getDataGenerator()->create_category();
-        $cm = $this->getDataGenerator()->create_module('chat', ['course' => $course->id]);
+        $cm = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cmcontext = \context_module::instance($cm->cmid);
         $page = $this->getDataGenerator()->create_module('page', array('course' => $course->id));
         $cmcontext2 = \context_module::instance($page->cmid);
@@ -243,7 +243,7 @@ class provider_test extends provider_testcase {
     /**
      * Test for provider::delete_data_for_all_users_in_context().
      */
-    public function test_delete_data_for_all_users_in_context() {
+    public function test_delete_data_for_all_users_in_context(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -257,7 +257,7 @@ class provider_test extends provider_testcase {
         $coursecat = $this->getDataGenerator()->create_category();
         $coursecatcontext = \context_coursecat::instance($coursecat->id);
         $systemcontext = \context_system::instance();
-        $cm = $this->getDataGenerator()->create_module('chat', ['course' => $course->id]);
+        $cm = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cmcontext = \context_module::instance($cm->cmid);
         $student = $DB->get_record('role', array('shortname' => 'student'), '*', MUST_EXIST);
         $manager = $DB->get_record('role', array('shortname' => 'manager'), '*', MUST_EXIST);
@@ -329,7 +329,7 @@ class provider_test extends provider_testcase {
     /**
      * Test for provider::delete_data_for_user().
      */
-    public function test_delete_data_for_user() {
+    public function test_delete_data_for_user(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -348,7 +348,7 @@ class provider_test extends provider_testcase {
         $coursecat = $this->getDataGenerator()->create_category();
         $coursecatcontext = \context_coursecat::instance($coursecat->id);
         $systemcontext = \context_system::instance();
-        $cm = $this->getDataGenerator()->create_module('chat', ['course' => $course->id]);
+        $cm = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cmcontext = \context_module::instance($cm->cmid);
         $student = $DB->get_record('role', array('shortname' => 'student'), '*', MUST_EXIST);
         $manager = $DB->get_record('role', array('shortname' => 'manager'), '*', MUST_EXIST);
@@ -387,7 +387,7 @@ class provider_test extends provider_testcase {
     /**
      * Export for a user with a key against a script where no instance is specified.
      */
-    public function test_export_user_role_to_cohort() {
+    public function test_export_user_role_to_cohort(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -443,7 +443,7 @@ class provider_test extends provider_testcase {
     /**
      * Test for provider::delete_user_role_to_cohort().
      */
-    public function test_delete_user_role_to_cohort() {
+    public function test_delete_user_role_to_cohort(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -478,7 +478,7 @@ class provider_test extends provider_testcase {
     /**
      * Test that only users within a course context are fetched.
      */
-    public function test_get_users_in_context() {
+    public function test_get_users_in_context(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -499,8 +499,8 @@ class provider_test extends provider_testcase {
         // Create course category.
         $coursecat = $this->getDataGenerator()->create_category();
         $coursecatcontext = \context_coursecat::instance($coursecat->id);
-        // Create chat module.
-        $cm = $this->getDataGenerator()->create_module('chat', ['course' => $course1->id]);
+        // Create assignment module.
+        $cm = $this->getDataGenerator()->create_module('assign', ['course' => $course1->id]);
         $cmcontext = \context_module::instance($cm->cmid);
 
         $systemcontext = \context_system::instance();
@@ -599,7 +599,7 @@ class provider_test extends provider_testcase {
     /**
      * Test that data for users in approved userlist is deleted.
      */
-    public function test_delete_data_for_users() {
+    public function test_delete_data_for_users(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -619,8 +619,8 @@ class provider_test extends provider_testcase {
         // Create course category.
         $coursecat = $this->getDataGenerator()->create_category();
         $coursecatcontext = \context_coursecat::instance($coursecat->id);
-        // Create chat module.
-        $cm = $this->getDataGenerator()->create_module('chat', ['course' => $course1->id]);
+        // Create assignment module.
+        $cm = $this->getDataGenerator()->create_module('assign', ['course' => $course1->id]);
         $cmcontext = \context_module::instance($cm->cmid);
 
         $systemcontext = \context_system::instance();

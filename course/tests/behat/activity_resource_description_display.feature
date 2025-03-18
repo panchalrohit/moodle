@@ -29,7 +29,6 @@ Feature: Display activity and resource description
       | acttype  | actname    |
       | assign   | Assign 1   |
       | book     | Book 1     |
-      | chat     | Chat 1     |
       | data     | Database 1 |
       | feedback | Feedback 1 |
       | forum    | Forum 1    |
@@ -43,7 +42,6 @@ Feature: Display activity and resource description
       | glossary | Glossary 1 |
       | scorm    | Scorm 1    |
       | lesson   | Lesson 1   |
-      | survey   | Survey 1   |
       | url      | URL 1      |
       | wiki     | Wiki 1     |
       | workshop | Workshop 1 |

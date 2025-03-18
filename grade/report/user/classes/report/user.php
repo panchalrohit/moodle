@@ -224,7 +224,7 @@ class user extends grade_report {
      * @param int $userid The id of the user
      * @param bool $viewasuser Set this to true when the current user is a mentor/parent of the targetted user.
      */
-    public function __construct(int $courseid, ?object $gpr, object $context, int $userid, bool $viewasuser = null) {
+    public function __construct(int $courseid, ?object $gpr, object $context, int $userid, ?bool $viewasuser = null) {
         global $DB, $CFG;
         parent::__construct($courseid, $gpr, $context);
 
@@ -475,7 +475,7 @@ class user extends grade_report {
      *
      * @return bool
      */
-    public function fill_table():bool {
+    public function fill_table(): bool {
         $this->fill_table_recursive($this->gtree->top_element);
         return true;
     }
@@ -524,7 +524,7 @@ class user extends grade_report {
             $gradegrade->load_grade_item();
 
             // Hidden Items.
-            if ($gradegrade->grade_item->is_hidden()) {
+            if ($gradegrade->grade_item->is_hidden() && $this->canviewhidden) {
                 $hidden = ' dimmed_text';
             }
 
@@ -588,9 +588,9 @@ class user extends grade_report {
                     $class .= ($type == 'categoryitem' || $type == 'courseitem') ? " d$depth baggb" : " item b1b";
                 }
 
-                $itemicon = \html_writer::div(grade_helper::get_element_icon($element), 'mr-1');
+                $itemicon = \html_writer::div(grade_helper::get_element_icon($element), 'me-1');
                 $elementtype = grade_helper::get_element_type_string($element);
-                $itemtype = \html_writer::span($elementtype, 'd-block text-uppercase small dimmed_text',
+                $itemtype = \html_writer::span($elementtype, 'd-block text-uppercase small ' . $hidden,
                     ['title' => $elementtype]);
 
                 if ($type == 'categoryitem' || $type == 'courseitem') {
@@ -598,14 +598,8 @@ class user extends grade_report {
                 }
 
                 // Generate the content for a cell that represents a grade item.
-                // If a behat test site is running avoid outputting the information about the type of the grade item.
-                // This additional information causes issues in behat particularly with the existing xpath used to
-                // interact with table elements.
-                if (!defined('BEHAT_SITE_RUNNING')) {
-                    $content = \html_writer::div($itemtype . $fullname);
-                } else {
-                    $content = \html_writer::div($fullname);
-                }
+                $itemtitle = \html_writer::div($fullname, 'rowtitle');
+                $content = \html_writer::div($itemtype . $itemtitle);
 
                 // Name.
                 $data['itemname']['content'] = \html_writer::div($itemicon . $content, "{$type} d-flex align-items-center");
@@ -700,10 +694,11 @@ class user extends grade_report {
                         );
                         $gradeitemdata['gradehiddenbydate'] = true;
                     } else if ($gradegrade->is_hidden()) {
-                        $data['grade']['class'] = $class.' dimmed_text';
+                        $data['grade']['class'] = $class;
                         $data['grade']['content'] = '-';
 
                         if ($this->canviewhidden) {
+                            $data['grade']['class'] .= ' dimmed_text';
                             $gradeitemdata['graderaw'] = $gradeval;
                             $data['grade']['content'] = grade_format_gradevalue($gradeval,
                                 $gradegrade->grade_item,
@@ -713,7 +708,7 @@ class user extends grade_report {
                         $gradestatusclass = '';
                         $gradepassicon = '';
                         $ispassinggrade = $gradegrade->is_passed($gradegrade->grade_item);
-                        if (!is_null($ispassinggrade)) {
+                        if (!is_null($gradeval) && !is_null($ispassinggrade)) {
                             $gradestatusclass = $ispassinggrade ? 'gradepass' : 'gradefail';
                             if ($ispassinggrade) {
                                 $gradepassicon = $OUTPUT->pix_icon(
@@ -739,6 +734,13 @@ class user extends grade_report {
                     }
                     $data['grade']['headers'] = "$headercat $headerrow grade$userid";
                     $gradeitemdata['gradeformatted'] = $data['grade']['content'];
+                    // If the current grade item need to show a grade action menu, generate the appropriate output.
+                    if ($gradeactionmenu = $this->gtree->get_grade_action_menu($gradegrade)) {
+                        $gradecontainer = html_writer::div($data['grade']['content']);
+                        $grademenucontainer = html_writer::div($gradeactionmenu, 'ps-1 d-flex align-items-center');
+                        $data['grade']['content'] = html_writer::div($gradecontainer . $grademenucontainer,
+                            'd-flex align-items-center');
+                    }
                 }
 
                 // Range.
@@ -761,9 +763,10 @@ class user extends grade_report {
                         $data['percentage']['class'] = $class.' gradingerror';
                         $data['percentage']['content'] = get_string('error');
                     } else if ($gradegrade->is_hidden()) {
-                        $data['percentage']['class'] = $class.' dimmed_text';
+                        $data['percentage']['class'] = $class;
                         $data['percentage']['content'] = '-';
                         if ($this->canviewhidden) {
+                            $data['percentage']['class'] .= ' dimmed_text';
                             $data['percentage']['content'] = grade_format_gradevalue(
                                 $gradeval,
                                 $gradegrade->grade_item,
@@ -790,8 +793,9 @@ class user extends grade_report {
                         $data['lettergrade']['class'] = $class.' gradingerror';
                         $data['lettergrade']['content'] = get_string('error');
                     } else if ($gradegrade->is_hidden()) {
-                        $data['lettergrade']['class'] = $class.' dimmed_text';
+                        $data['lettergrade']['class'] = $class;
                         if (!$this->canviewhidden) {
+                            $data['lettergrade']['class'] .= ' dimmed_text';
                             $data['lettergrade']['content'] = '-';
                         } else {
                             $data['lettergrade']['content'] = grade_format_gradevalue(
@@ -821,8 +825,11 @@ class user extends grade_report {
                         $data['rank']['class'] = $class.' gradingerror';
                         $data['rank']['content'] = get_string('error');
                     } else if ($gradegrade->is_hidden()) {
-                        $data['rank']['class'] = $class.' dimmed_text';
+                        $data['rank']['class'] = $class;
                         $data['rank']['content'] = '-';
+                        if ($this->canviewhidden) {
+                            $data['rank']['class'] .= ' dimmed_text';
+                        }
                     } else if (is_null($gradeval)) {
                         // No grade, o rank.
                         $data['rank']['class'] = $class;

@@ -373,43 +373,12 @@ function upgrade_main_savepoint($result, $version, $allowabort=true) {
  *
  * @category upgrade
  * @param bool $result false if upgrade step failed, true if completed
- * @param string or float $version main version
+ * @param string|float $version main version
  * @param string $modname name of module
  * @param bool $allowabort allow user to abort script execution here
- * @return void
  */
 function upgrade_mod_savepoint($result, $version, $modname, $allowabort=true) {
-    global $DB;
-
-    $component = 'mod_'.$modname;
-
-    if (!$result) {
-        throw new upgrade_exception($component, $version);
-    }
-
-    $dbversion = $DB->get_field('config_plugins', 'value', array('plugin'=>$component, 'name'=>'version'));
-
-    if (!$module = $DB->get_record('modules', array('name'=>$modname))) {
-        throw new \moodle_exception('modulenotexist', 'debug', '', $modname);
-    }
-
-    if ($dbversion >= $version) {
-        // something really wrong is going on in upgrade script
-        throw new downgrade_exception($component, $dbversion, $version);
-    }
-    set_config('version', $version, $component);
-
-    upgrade_log(UPGRADE_LOG_NORMAL, $component, 'Upgrade savepoint reached');
-
-    // reset upgrade timeout to default
-    upgrade_set_timeout();
-
-    core_upgrade_time::record_savepoint($version);
-
-    // this is a safe place to stop upgrades if user aborts page loading
-    if ($allowabort and connection_aborted()) {
-        die;
-    }
+    upgrade_plugin_savepoint($result, $version, 'mod', $modname, $allowabort);
 }
 
 /**
@@ -419,57 +388,25 @@ function upgrade_mod_savepoint($result, $version, $modname, $allowabort=true) {
  *
  * @category upgrade
  * @param bool $result false if upgrade step failed, true if completed
- * @param string or float $version main version
+ * @param string|float $version main version
  * @param string $blockname name of block
  * @param bool $allowabort allow user to abort script execution here
- * @return void
  */
 function upgrade_block_savepoint($result, $version, $blockname, $allowabort=true) {
-    global $DB;
-
-    $component = 'block_'.$blockname;
-
-    if (!$result) {
-        throw new upgrade_exception($component, $version);
-    }
-
-    $dbversion = $DB->get_field('config_plugins', 'value', array('plugin'=>$component, 'name'=>'version'));
-
-    if (!$block = $DB->get_record('block', array('name'=>$blockname))) {
-        throw new \moodle_exception('blocknotexist', 'debug', '', $blockname);
-    }
-
-    if ($dbversion >= $version) {
-        // something really wrong is going on in upgrade script
-        throw new downgrade_exception($component, $dbversion, $version);
-    }
-    set_config('version', $version, $component);
-
-    upgrade_log(UPGRADE_LOG_NORMAL, $component, 'Upgrade savepoint reached');
-
-    // reset upgrade timeout to default
-    upgrade_set_timeout();
-
-    core_upgrade_time::record_savepoint($version);
-
-    // this is a safe place to stop upgrades if user aborts page loading
-    if ($allowabort and connection_aborted()) {
-        die;
-    }
+    upgrade_plugin_savepoint($result, $version, 'block', $blockname, $allowabort);
 }
 
 /**
- * Plugins upgrade savepoint, marks end of blocks upgrade blocks
+ * Plugins upgrade savepoint, marks end of plugin upgrade blocks
  * It stores plugin version, resets upgrade timeout
  * and abort upgrade if user cancels page loading.
  *
  * @category upgrade
  * @param bool $result false if upgrade step failed, true if completed
- * @param string or float $version main version
+ * @param string|float $version main version
  * @param string $type The type of the plugin.
  * @param string $plugin The name of the plugin.
  * @param bool $allowabort allow user to abort script execution here
- * @return void
  */
 function upgrade_plugin_savepoint($result, $version, $type, $plugin, $allowabort=true) {
     global $DB;
@@ -478,6 +415,11 @@ function upgrade_plugin_savepoint($result, $version, $type, $plugin, $allowabort
 
     if (!$result) {
         throw new upgrade_exception($component, $version);
+    }
+
+    // Ensure we're dealing with a real component.
+    if (core_component::get_component_directory($component) === null) {
+        throw new moodle_exception('pluginnotexist', 'error', '', $component);
     }
 
     $dbversion = $DB->get_field('config_plugins', 'value', array('plugin'=>$component, 'name'=>'version'));
@@ -513,6 +455,19 @@ function upgrade_stale_php_files_present(): bool {
     global $CFG;
 
     $someexamplesofremovedfiles = [
+        // Removed in 4.5.
+        '/backup/util/ui/classes/copy/copy.php',
+        '/backup/util/ui/yui/build/moodle-backup-backupselectall/moodle-backup-backupselectall.js',
+        '/cache/classes/interfaces.php',
+        '/cache/disabledlib.php',
+        '/cache/lib.php',
+        // Removed in 4.4.
+        '/README.txt',
+        '/lib/dataformatlib.php',
+        '/lib/horde/readme_moodle.txt',
+        '/lib/yui/src/formchangechecker/js/formchangechecker.js',
+        '/mod/forum/pix/monologo.png',
+        '/question/tests/behat/behat_question.php',
         // Removed in 4.3.
         '/badges/ajax.php',
         '/course/editdefaultcompletion.php',
@@ -1296,7 +1251,9 @@ function external_update_descriptions($component) {
 
         if ($dbfunction->services != $functionservices) {
             // Now, we need to check if services were removed, in that case we need to remove the function from them.
-            $servicesremoved = array_diff(explode(",", $dbfunction->services), explode(",", $functionservices));
+            $oldservices = $dbfunction->services ? explode(',', $dbfunction->services) : [];
+            $newservices = $functionservices ? explode(',', $functionservices) : [];
+            $servicesremoved = array_diff($oldservices, $newservices);
             foreach ($servicesremoved as $removedshortname) {
                 if ($externalserviceid = $DB->get_field('external_services', 'id', array("shortname" => $removedshortname))) {
                     $DB->delete_records('external_services_functions', array('functionname' => $dbfunction->name,
@@ -1947,9 +1904,6 @@ function upgrade_core($version, $verbose) {
         $syscontext->mark_dirty();
         core_upgrade_time::record_detail('context_system::mark_dirty');
 
-        // Prompt admin to register site. Reminder flow handles sites already registered, so admin won't be prompted if registered.
-        set_config('registrationpending', true);
-
         print_upgrade_part_end('moodle', false, $verbose);
     } catch (Exception $ex) {
         upgrade_handle_exception($ex);
@@ -2001,6 +1955,10 @@ function upgrade_noncore($verbose) {
         core_upgrade_time::record_detail('core_component::get_all_versions_hash');
         set_config('allcomponenthash', core_component::get_all_component_hash());
         core_upgrade_time::record_detail('core_component::get_all_component_hash');
+
+        // Prompt admin to register site. Reminder flow handles sites already registered, so admin won't be prompted if registered.
+        // Defining for non-core upgrades also covers core upgrades.
+        set_config('registrationpending', true);
 
         // Purge caches again, just to be sure we arn't holding onto old stuff now.
         if (!defined('CLI_UPGRADE_RUNNING') || !CLI_UPGRADE_RUNNING) {
@@ -2506,59 +2464,6 @@ function check_sixtyfour_bits(environment_results $result) {
 }
 
 /**
- * Check if the igbinary extension installed is buggy one
- *
- * There are a few php-igbinary versions that are buggy and
- * return any unserialised array with wrong index. This defeats
- * key() and next() operations on them.
- *
- * This library is used by MUC and also by memcached and redis
- * when available.
- *
- * Let's inform if there is some problem when:
- *   - php 7.2 is being used (php 7.3 and up are immune).
- *   - the igbinary extension is installed.
- *   - the version of the extension is between 3.2.2 and 3.2.4.
- *   - the buggy behaviour is reproduced.
- *
- * @param environment_results $result object to update, if relevant.
- * @return environment_results|null updated results or null.
- */
-function check_igbinary322_version(environment_results $result) {
-
-    // No problem if using PHP version 7.3 and up.
-    $phpversion = normalize_version(phpversion());
-    if (version_compare($phpversion, '7.3', '>=')) {
-        return null;
-    }
-
-    // No problem if igbinary is not installed..
-    if (!function_exists('igbinary_serialize')) {
-        return null;
-    }
-
-    // No problem if using igbinary < 3.2.2 or > 3.2.4.
-    $igbinaryversion = normalize_version(phpversion('igbinary'));
-    if (version_compare($igbinaryversion, '3.2.2', '<') or version_compare($igbinaryversion, '3.2.4', '>')) {
-        return null;
-    }
-
-    // Let's verify the real behaviour to see if the bug is around.
-    // Note that we need this extra check because they released 3.2.5 with 3.2.4 version number, so
-    // over the paper, there are 3.2.4 working versions (3.2.5 ones with messed reflection version).
-    $data = [1, 2, 3];
-    $data = igbinary_unserialize(igbinary_serialize($data));
-    if (key($data) === 0) {
-        return null;
-    }
-
-    // Arrived here, we are using PHP 7.2 and a buggy verified igbinary version, let's inform and don't allow to continue.
-    $result->setInfo('igbinary version problem');
-    $result->setStatus(false);
-    return $result;
-}
-
-/**
  * This function checks that the database prefix ($CFG->prefix) is <= xmldb_table::PREFIX_MAX_LENGTH
  *
  * @param environment_results $result
@@ -2597,6 +2502,9 @@ function check_upgrade_key($upgradekeyhash) {
         if ($upgradekeyhash === null or $upgradekeyhash !== sha1($CFG->config_php_settings['upgradekey'])) {
             if (!$PAGE->headerprinted) {
                 $PAGE->set_title(get_string('upgradekeyreq', 'admin'));
+                $PAGE->requires->js_call_amd('core/togglesensitive', 'init', ['upgradekey']);
+
+                /** @var core_admin_renderer $output */
                 $output = $PAGE->get_renderer('core', 'admin');
                 echo $output->upgradekey_form_page(new moodle_url('/admin/index.php', array('cache' => 0)));
                 die();
@@ -2781,14 +2689,8 @@ function check_max_input_vars(environment_results $result) {
     if ($max < 5000) {
         $result->setInfo('max_input_vars');
         $result->setStatus(false);
-        if (PHP_VERSION_ID >= 80000) {
-            // For PHP8 this check is required.
-            $result->setLevel('required');
-            $result->setFeedbackStr('settingmaxinputvarsrequired');
-        } else {
-            // For PHP7 this check is optional (recommended).
-            $result->setFeedbackStr('settingmaxinputvars');
-        }
+        $result->setLevel('required');
+        $result->setFeedbackStr('settingmaxinputvarsrequired');
         return $result;
     }
     return null;
@@ -2868,6 +2770,24 @@ function check_mod_assignment(environment_results $result): ?environment_results
             $result->setFeedbackStr('modassignmentsubpluginsexist');
             return $result;
         }
+    }
+
+    return null;
+}
+
+/**
+ * Check if asynchronous backups are enabled.
+ *
+ * @param environment_results $result
+ * @return environment_results|null
+ */
+function check_async_backup(environment_results $result): ?environment_results {
+    global $CFG;
+
+    if (!during_initial_install() && empty($CFG->enableasyncbackup)) { // Have to use $CFG as config table may not be available.
+        $result->setInfo('Asynchronous backups disabled');
+        $result->setFeedbackStr('asyncbackupdisabled');
+        return $result;
     }
 
     return null;

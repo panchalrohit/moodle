@@ -79,19 +79,22 @@ class lesson_page_type_matching extends lesson_page {
             $answers[$getanswer->id] = $getanswer;
         }
 
+        // Calculate the text for the dropdown, keyed by the non formatted version.
         $responses = array();
         foreach ($answers as $answer) {
-            // get all the response
+            // Get all the response.
             if ($answer->response != null) {
-                $responses[] = format_text(trim($answer->response));
+                $responses[trim($answer->response)] = format_text(trim($answer->response));
             }
         }
 
-        $responseoptions = array(''=>get_string('choosedots'));
+        // Now shuffle the answers to randomise the order of the items in the dropdown.
+        $responseoptions = ['' => get_string('choosedots')];
         if (!empty($responses)) {
-            shuffle($responses);
-            foreach ($responses as  $response) {
-                $responseoptions[htmlspecialchars($response, ENT_COMPAT)] = $response;
+            $keys = array_keys($responses);
+            shuffle($keys);
+            foreach ($keys as $key) {
+                $responseoptions[$key] = $responses[$key];
             }
         }
         if (isset($USER->modattempts[$this->lesson->id]) && !empty($attempt->useranswer)) {
@@ -211,7 +214,6 @@ class lesson_page_type_matching extends lesson_page {
                 $result->noanswer = true;
                 return $result;
             }
-            $value = htmlspecialchars_decode($value, ENT_COMPAT);
             $userresponse[] = $value;
             // Make sure the user's answer exists in question's answer
             if (array_key_exists($id, $answers)) {
@@ -440,7 +442,7 @@ class lesson_page_type_matching extends lesson_page {
                 if ($useranswer != null) {
                     $userresponse = explode(",", $useranswer->useranswer);
                     $data .= '<label class="accesshide" for="stu_answer_response_' . $n . '">' . get_string('matchesanswer', 'lesson') . '</label>';
-                    $data .= "<select class=\"custom-select\" id=\"stu_answer_response_" . $n . "\" " .
+                    $data .= "<select class=\"form-select\" id=\"stu_answer_response_" . $n . "\" " .
                              "disabled=\"disabled\"><option selected=\"selected\">";
                     if (array_key_exists($i, $userresponse)) {
                         $data .= $userresponse[$i];
@@ -448,7 +450,7 @@ class lesson_page_type_matching extends lesson_page {
                     $data .= "</option></select>";
                 } else {
                     $data .= '<label class="accesshide" for="answer_response_' . $n . '">' . get_string('matchesanswer', 'lesson') . '</label>';
-                    $data .= "<select class=\"custom-select\" id=\"answer_response_" . $n . "\" " .
+                    $data .= "<select class=\"form-select\" id=\"answer_response_" . $n . "\" " .
                              "disabled=\"disabled\"><option selected=\"selected\">".strip_tags(format_string($answer->response))."</option></select>";
                 }
 

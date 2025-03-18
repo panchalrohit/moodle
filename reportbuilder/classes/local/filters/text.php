@@ -61,7 +61,7 @@ class text extends base {
      *
      * @return array of comparison operators
      */
-    private function get_operators() : array {
+    private function get_operators(): array {
         $operators = [
             self::ANY_VALUE => get_string('filterisanyvalue', 'core_reportbuilder'),
             self::CONTAINS => get_string('filtercontains', 'core_reportbuilder'),
@@ -92,7 +92,8 @@ class text extends base {
         $elements['value'] = $mform->createElement('text', $this->name . '_value',
             get_string('filterfieldvalue', 'core_reportbuilder', $this->get_header()));
 
-        $mform->addElement('group', $this->name . '_group', '', $elements, '', false);
+        $mform->addGroup($elements, $this->name . '_group', $this->get_header(), '', false)
+            ->setHiddenLabel(true);
 
         $mform->setType($this->name . '_value', PARAM_RAW_TRIMMED);
         $mform->hideIf($this->name . '_value', $this->name . '_operator', 'eq', self::ANY_VALUE);
@@ -108,7 +109,6 @@ class text extends base {
      */
     public function get_sql_filter(array $values): array {
         global $DB;
-        $name = database::generate_param_name();
 
         $operator = (int) ($values["{$this->name}_operator"] ?? self::ANY_VALUE);
         $value = trim($values["{$this->name}_value"] ?? '');
@@ -121,6 +121,8 @@ class text extends base {
             // Filter configuration is invalid. Ignore the filter.
             return ['', []];
         }
+
+        $name = database::generate_param_name();
 
         switch($operator) {
             case self::CONTAINS:
@@ -152,14 +154,10 @@ class text extends base {
                 $params[$name] = "%$value";
                 break;
             case self::IS_EMPTY:
-                $paramempty = database::generate_param_name();
-                $res = "COALESCE({$fieldsql}, :{$paramempty}) = :{$name}";
-                $params[$paramempty] = $params[$name] = '';
+                $res = "COALESCE({$fieldsql}, '') = ''";
                 break;
             case self::IS_NOT_EMPTY:
-                $paramempty = database::generate_param_name();
-                $res = "COALESCE({$fieldsql}, :{$paramempty}) != :{$name}";
-                $params[$paramempty] = $params[$name] = '';
+                $res = "COALESCE({$fieldsql}, '') != ''";
                 break;
             default:
                 // Filter configuration is invalid. Ignore the filter.

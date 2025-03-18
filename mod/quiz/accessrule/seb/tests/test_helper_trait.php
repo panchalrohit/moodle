@@ -88,7 +88,7 @@ trait quizaccess_seb_test_helper_trait {
      * @param \stdClass $settings Object containing settings.
      * @return \stdClass The modified settings object.
      */
-    protected function strip_all_prefixes(\stdClass $settings) : \stdClass {
+    protected function strip_all_prefixes(\stdClass $settings): \stdClass {
         $newsettings = new \stdClass();
         foreach ($settings as $name => $setting) {
             $newname = preg_replace("/^seb_/", "", $name);
@@ -103,7 +103,7 @@ trait quizaccess_seb_test_helper_trait {
      * @param string $xml
      * @return int The user draftarea id
      */
-    protected function create_test_draftarea_file(string $xml) : int {
+    protected function create_test_draftarea_file(string $xml): int {
         global $USER;
 
         $itemid = 0;
@@ -133,7 +133,7 @@ trait quizaccess_seb_test_helper_trait {
      * @param string $cmid Course module id.
      * @return int Item ID of file.
      */
-    protected function create_module_test_file(string $xml, string $cmid) : int {
+    protected function create_module_test_file(string $xml, string $cmid): int {
         $itemid = 0;
         $fs = get_file_storage();
         $filerecord = [
@@ -168,9 +168,13 @@ trait quizaccess_seb_test_helper_trait {
         $quiz->seb_showsebdownloadlink = 1;
         $quiz->coursemodule = $quiz->cmid;
 
+        // Create a question bank.
+        $qbank = self::getDataGenerator()->create_module('qbank', ['course' => $course->id]);
+        $qbankcontext = context_module::instance($qbank->cmid);
+
         // Create a couple of questions.
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
-        $cat = $questiongenerator->create_question_category();
+        $cat = $questiongenerator->create_question_category(['contextid' => $qbankcontext->id]);
 
         $saq = $questiongenerator->create_question('shortanswer', null, ['category' => $cat->id]);
         quiz_add_quiz_question($saq->id, $quiz);
@@ -226,7 +230,7 @@ trait quizaccess_seb_test_helper_trait {
      * @param string|null $xml Template content.
      * @return \quizaccess_seb\template Just created template.
      */
-    public function create_template(string $xml = null) {
+    public function create_template(?string $xml = null) {
         $data = [];
 
         if (!is_null($xml)) {
@@ -280,7 +284,7 @@ trait quizaccess_seb_test_helper_trait {
      *
      * @return \stdClass Settings.
      */
-    protected function get_test_settings(array $settings = []) : \stdClass {
+    protected function get_test_settings(array $settings = []): \stdClass {
         return (object) array_merge([
             'quizid' => 1,
             'cmid' => 1,

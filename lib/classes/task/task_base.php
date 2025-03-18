@@ -45,9 +45,6 @@ abstract class task_base {
     /** @var string $component - The component this task belongs to. */
     private $component = '';
 
-    /** @var bool $blocking - Does this task block the entire cron process. */
-    private $blocking = false;
-
     /** @var int $faildelay - Exponentially increasing fail delay */
     private $faildelay = 0;
 
@@ -119,19 +116,31 @@ abstract class task_base {
     }
 
     /**
-     * Setter for $blocking.
-     * @param bool $blocking
+     * @deprecated since Moodle 4.4 See MDL-67667
      */
-    public function set_blocking($blocking) {
-        $this->blocking = $blocking;
+    #[\core\attribute\deprecated(
+        replacement: null,
+        since: '4.4',
+        mdl: 'MDL-67667',
+        reason: 'Blocking tasks are no longer supported',
+        final: true,
+    )]
+    public function set_blocking() {
+        \core\deprecation::emit_deprecation_if_present([$this, __FUNCTION__]);
     }
 
     /**
-     * Getter for $blocking.
-     * @return bool
+     * @deprecated since Moodle 4.4 See MDL-67667
      */
+    #[\core\attribute\deprecated(
+        replacement: null,
+        since: '4.4',
+        mdl: 'MDL-67667',
+        reason: 'Blocking tasks are no longer supported',
+        final: true,
+    )]
     public function is_blocking() {
-        return $this->blocking;
+        \core\deprecation::emit_deprecation_if_present([$this, __FUNCTION__]);
     }
 
     /**
@@ -192,7 +201,7 @@ abstract class task_base {
      * Do the job.
      * Throw exceptions on errors (the job will be retried).
      */
-    public abstract function execute();
+    abstract public function execute();
 
     /**
      * Setter for $timestarted.

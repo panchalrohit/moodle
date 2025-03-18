@@ -16,6 +16,8 @@
 
 namespace core_course\analytics;
 
+use core_analytics\tests\mlbackend_helper_trait;
+
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
@@ -31,14 +33,15 @@ require_once(__DIR__ . '/../../../analytics/tests/fixtures/test_target_course_us
  * @copyright 2017 David Monllaó {@link http://www.davidmonllao.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class indicators_test extends \advanced_testcase {
+final class indicators_test extends \advanced_testcase {
+    use mlbackend_helper_trait;
 
     /**
      * test_no_teacher
      *
      * @return void
      */
-    public function test_no_teacher() {
+    public function test_no_teacher(): void {
         global $DB;
 
         $this->resetAfterTest(true);
@@ -77,7 +80,7 @@ class indicators_test extends \advanced_testcase {
      *
      * @return void
      */
-    public function test_completion_enabled() {
+    public function test_completion_enabled(): void {
         global $DB;
 
         $this->resetAfterTest(true);
@@ -145,7 +148,7 @@ class indicators_test extends \advanced_testcase {
      *
      * @return void
      */
-    public function test_potential_cognitive() {
+    public function test_potential_cognitive(): void {
         global $DB;
 
         $this->resetAfterTest(true);
@@ -230,7 +233,7 @@ class indicators_test extends \advanced_testcase {
      *
      * @return void
      */
-    public function test_potential_social() {
+    public function test_potential_social(): void {
         global $DB;
 
         $this->resetAfterTest(true);
@@ -313,8 +316,12 @@ class indicators_test extends \advanced_testcase {
      *
      * @return void
      */
-    public function test_activities_due() {
+    public function test_activities_due(): void {
         global $DB;
+
+        if (!self::is_mlbackend_python_configured()) {
+            $this->markTestSkipped('mlbackend_python is not configured.');
+        }
 
         $this->resetAfterTest(true);
         $this->setAdminuser();

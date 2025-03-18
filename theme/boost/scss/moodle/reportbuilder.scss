@@ -8,9 +8,9 @@
 
 // Button styles when a toggle button is active.
 .reportbuilder-wrapper {
-    .btn-outline-secondary[data-toggle="collapse"]:not(.collapsed),
-    .dropdown.show .btn-outline-secondary[data-toggle="dropdown"] {
-        color: color-yiq($gray-600);
+    .btn-outline-secondary[data-bs-toggle="collapse"]:not(.collapsed),
+    .dropdown.show .btn-outline-secondary[data-bs-toggle="dropdown"] {
+        color: color-contrast($gray-600);
         background-color: $gray-600;
         border-color: $gray-600;
     }
@@ -42,7 +42,7 @@ $rb-filters-footer-height: 4rem;
     padding: 0 0 $rb-filters-footer-height 0;
     z-index: $zindex-modal;
     overflow: hidden;
-    @include media-breakpoint-down(sm) {
+    @include media-breakpoint-down(md) {
         width: 100%;
     }
 }
@@ -63,7 +63,7 @@ $rb-filters-footer-height: 4rem;
             word-break: break-all;
         }
     }
-    .form-group[data-groupname="buttonar"] {
+    .fitem[data-groupname="buttonar"] {
         position: absolute;
         bottom: 0;
         height: $rb-filters-footer-height;
@@ -84,15 +84,15 @@ $rb-filters-footer-height: 4rem;
         .fdate_selector {
             flex-wrap: wrap;
         }
-        .form-group {
-            margin-bottom: 0;
+        .fitem {
+            margin-bottom: 0 !important; /* stylelint-disable-line declaration-no-important */
             max-width: 100%;
         }
-        .form-group:not(.row):last-child {
+        .fitem:not(.row):last-child {
             flex: 1;
             min-width: 0;
             span,
-            .custom-select {
+            .form-select {
                 width: 100%;
             }
         }
@@ -175,6 +175,7 @@ $rb-right-sidebar-width: 350px !default;
 // Allow horizontal scroll in editor table.
 .reportbuilder-editor-table-container {
     overflow-x: auto;
+    padding: 1px;
 }
 // Custom table headers.
 .reportbuilder-table th {
@@ -315,7 +316,6 @@ $rb-sortable-list-drag-color: lighten($primary, 40%);
     .toggle-card-button {
         i.toggle-card-icon {
             color: $gray-600;
-            font-size: 1.5em;
             font-weight: 700;
         }
         // Toggle icons using standard bootstrap collapse.
@@ -440,7 +440,7 @@ $rb-sortable-list-drag-color: lighten($primary, 40%);
 
 .reportbuilder-report[data-report-type="0"]:not([data-editing]) {
     // Report card view for small screens (if not forcing table).
-    @include media-breakpoint-down(xs) {
+    @include media-breakpoint-down(sm) {
         &:not([data-force-table]) {
             @include table-cards;
         }

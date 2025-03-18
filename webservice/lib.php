@@ -454,11 +454,14 @@ class webservice {
      */
     public function get_token_by_id_with_details($tokenid) {
         global $DB;
+
         $sql = "SELECT t.id, t.token, u.id AS userid, u.firstname, u.lastname, s.name, t.creatorid
-                FROM {external_tokens} t, {user} u, {external_services} s
-                WHERE t.id=? AND t.tokentype = ? AND s.id = t.externalserviceid AND t.userid = u.id";
-        $token = $DB->get_record_sql($sql, array($tokenid, EXTERNAL_TOKEN_PERMANENT), MUST_EXIST);
-        return $token;
+                  FROM {external_tokens} t
+             LEFT JOIN {user} u ON u.id = t.userid
+             LEFT JOIN {external_services} s ON s.id = t.externalserviceid
+                 WHERE t.id = ? AND t.tokentype = ?";
+
+        return $DB->get_record_sql($sql, [$tokenid, EXTERNAL_TOKEN_PERMANENT], MUST_EXIST);
     }
 
     /**
@@ -1566,10 +1569,7 @@ abstract class webservice_base_server extends webservice_server {
         $rs->close();
 
         // Generate the virtual class name.
-        $classname = 'webservices_virtual_class_000000';
-        while (class_exists($classname)) {
-            $classname++;
-        }
+        $classname = $this->get_unique_classname('webservices_virtual_class');
         $this->serviceclass = $classname;
 
         // Get the list of all available external functions.
@@ -1618,10 +1618,7 @@ EOD;
         $fieldsstr = implode("\n", $fields);
 
         // We do this after the call to get_phpdoc_type() to avoid duplicate class creation.
-        $classname = 'webservices_struct_class_000000';
-        while (class_exists($classname)) {
-            $classname++;
-        }
+        $classname = $this->get_unique_classname('webservices_struct_class');
         $code = <<<EOD
 /**
  * Virtual struct class for web services for user id $USER->id in context {$this->restricted_context->id}.
@@ -1777,6 +1774,26 @@ EOD;
         }
 
         return $type;
+    }
+
+    /**
+     * Get a unique integer-suffixed classname for dynamic code creation.
+     *
+     * @param string $prefix The class name prefix to use.
+     * @return string The unused class name
+     */
+    protected function get_unique_classname(string $prefix): string {
+        $suffix = 0;
+        do {
+            $classname = sprintf(
+                "%s_%06d",
+                $prefix,
+                $suffix,
+            );
+            $suffix++;
+        } while (class_exists($classname));
+
+        return $classname;
     }
 
     /**

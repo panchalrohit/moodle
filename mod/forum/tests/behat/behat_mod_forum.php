@@ -27,7 +27,8 @@
 
 require_once(__DIR__ . '/../../../../lib/behat/behat_base.php');
 
-use Behat\Gherkin\Node\TableNode as TableNode;
+use Behat\Gherkin\Node\TableNode;
+
 /**
  * Forum-related steps definitions.
  *
@@ -37,6 +38,15 @@ use Behat\Gherkin\Node\TableNode as TableNode;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_mod_forum extends behat_base {
+    /**
+     * Reset forum caches between tests.
+     *
+     * @BeforeScenario @mod_forum
+     */
+    public function reset_forum_caches(): void {
+        \mod_forum\subscriptions::reset_discussion_cache();
+        \mod_forum\subscriptions::reset_forum_cache();
+    }
 
     /**
      * Adds a topic to the forum specified by it's name. Useful for the Announcements and blog-style forums.
@@ -144,7 +154,7 @@ class behat_mod_forum extends behat_base {
      */
     public function i_click_on_action_menu($discussion) {
         $this->execute('behat_general::i_click_on_in_the', [
-            "[data-container='discussion-tools'] [data-toggle='dropdown']", "css_element",
+            "[data-container='discussion-tools'] [data-bs-toggle='dropdown']", "css_element",
             "//tr[contains(concat(' ', normalize-space(@class), ' '), ' discussion ') and contains(.,'$discussion')]",
             "xpath_element"
         ]);

@@ -23,10 +23,12 @@ use context_system;
 use context_user;
 use core\context;
 use core_component;
+use core_date;
 use html_writer;
 use lang_string;
 use moodle_url;
 use stdClass;
+use theme_config;
 use core_user\fields;
 use core_reportbuilder\local\filters\boolean_select;
 use core_reportbuilder\local\filters\date;
@@ -201,10 +203,11 @@ class user extends base {
         ))
             ->add_joins($this->get_joins())
             ->add_fields($fullnameselect)
-            ->set_type(column::TYPE_TEXT)
-            ->set_is_sortable($this->is_sortable('fullname'), $fullnamesort)
-            ->add_callback(static function(?string $value, stdClass $row) use ($viewfullnames): string {
-                if ($value === null) {
+            ->set_is_sortable(true, $fullnamesort)
+            ->add_callback(static function($value, stdClass $row) use ($viewfullnames): string {
+
+                // Ensure we have at least one field present.
+                if (count(array_filter((array) $row, fn($field) => $field !== null)) === 0) {
                     return '';
                 }
 
@@ -232,12 +235,12 @@ class user extends base {
                 ->add_joins($this->get_joins())
                 ->add_fields($fullnameselect)
                 ->add_field("{$usertablealias}.id")
-                ->set_type(column::TYPE_TEXT)
-                ->set_is_sortable($this->is_sortable($fullnamefield), $fullnamesort)
-                ->add_callback(static function(?string $value, stdClass $row) use ($fullnamefield, $viewfullnames): string {
+                ->set_is_sortable(true, $fullnamesort)
+                ->add_callback(static function($value, stdClass $row) use ($fullnamefield, $viewfullnames): string {
                     global $OUTPUT;
 
-                    if ($value === null) {
+                    // Ensure we have at least one field present.
+                    if (count(array_filter((array) $row, fn($field) => $field !== null)) === 0) {
                         return '';
                     }
 
@@ -261,7 +264,7 @@ class user extends base {
                             fullname($row, $viewfullnames));
                     }
 
-                    return $value;
+                    return (string) $value;
                 });
 
             // Picture fields need some more data.
@@ -275,16 +278,12 @@ class user extends base {
         // Picture column.
         $columns[] = (new column(
             'picture',
-            new lang_string('userpicture', 'core_reportbuilder'),
+            new lang_string('picture'),
             $this->get_entity_name()
         ))
             ->add_joins($this->get_joins())
             ->add_fields($userpictureselect)
-            ->set_type(column::TYPE_INTEGER)
-            ->set_is_sortable($this->is_sortable('picture'))
-            // It doesn't make sense to offer integer aggregation methods for this column.
-            ->set_disabled_aggregation(['avg', 'max', 'min', 'sum'])
-            ->add_callback(static function ($value, stdClass $row): string {
+            ->add_callback(static function($value, stdClass $row): string {
                 global $OUTPUT;
 
                 return !empty($row->id) ? $OUTPUT->user_picture($row, ['link' => false, 'alttext' => false]) : '';
@@ -295,11 +294,6 @@ class user extends base {
         foreach ($userfields as $userfield => $userfieldlang) {
             $columntype = $this->get_user_field_type($userfield);
 
-            $columnfieldsql = "{$usertablealias}.{$userfield}";
-            if ($columntype === column::TYPE_LONGTEXT && $DB->get_dbfamily() === 'oracle') {
-                $columnfieldsql = $DB->sql_order_by_text($columnfieldsql, 1024);
-            }
-
             $column = (new column(
                 $userfield,
                 $userfieldlang,
@@ -307,18 +301,12 @@ class user extends base {
             ))
                 ->add_joins($this->get_joins())
                 ->set_type($columntype)
-                ->add_field($columnfieldsql, $userfield)
-                ->set_is_sortable($this->is_sortable($userfield))
+                ->add_field("{$usertablealias}.{$userfield}")
+                ->set_is_sortable(true)
                 ->add_callback([$this, 'format'], $userfield);
 
-            // Some columns also have specific format callbacks.
-            if ($userfield === 'country') {
-                $column->add_callback(static function(string $country): string {
-                    $countries = get_string_manager()->get_list_of_countries(true);
-                    return $countries[$country] ?? '';
-                });
-            } else if ($userfield === 'description') {
-                // Select enough fields in order to format the column.
+            // Join on the context table so that we can use it for formatting these columns later.
+            if ($userfield === 'description') {
                 $column
                     ->add_join("LEFT JOIN {context} {$contexttablealias}
                            ON {$contexttablealias}.contextlevel = " . CONTEXT_USER . "
@@ -331,22 +319,6 @@ class user extends base {
         }
 
         return $columns;
-    }
-
-    /**
-     * Check if this field is sortable
-     *
-     * @param string $fieldname
-     * @return bool
-     */
-    protected function is_sortable(string $fieldname): bool {
-        // Some columns can't be sorted, like longtext or images.
-        $nonsortable = [
-            'description',
-            'picture',
-        ];
-
-        return !in_array($fieldname, $nonsortable);
     }
 
     /**
@@ -366,6 +338,12 @@ class user extends base {
 
         if ($this->get_user_field_type($fieldname) === column::TYPE_TIMESTAMP) {
             return format::userdate($value, $row);
+        }
+
+        // If the column has corresponding filter, determine the value from its options.
+        $options = $this->get_options_for($fieldname);
+        if ($options !== null && $value !== null && array_key_exists($value, $options)) {
+            return $options[$value];
         }
 
         if ($fieldname === 'description') {
@@ -399,7 +377,8 @@ class user extends base {
 
         // Create a dummy user object containing all name fields.
         $dummyuser = (object) array_combine($namefields, $namefields);
-        $dummyfullname = fullname($dummyuser, true);
+        $viewfullnames = has_capability('moodle/site:viewfullnames', context_system::instance());
+        $dummyfullname = fullname($dummyuser, $viewfullnames);
 
         // Extract any name fields from the fullname format in the order that they appear.
         $matchednames = array_values(order_in_string($namefields, $dummyfullname));
@@ -427,6 +406,9 @@ class user extends base {
             'email' => new lang_string('email'),
             'city' => new lang_string('city'),
             'country' => new lang_string('country'),
+            'lang' => new lang_string('language'),
+            'timezone' => new lang_string('timezone'),
+            'theme' => new lang_string('theme'),
             'description' => new lang_string('description'),
             'firstnamephonetic' => new lang_string('firstnamephonetic'),
             'lastnamephonetic' => new lang_string('lastnamephonetic'),
@@ -442,6 +424,7 @@ class user extends base {
             'suspended' => new lang_string('suspended'),
             'confirmed' => new lang_string('confirmed', 'admin'),
             'username' => new lang_string('username'),
+            'auth' => new lang_string('authentication', 'moodle'),
             'moodlenetprofile' => new lang_string('moodlenetprofile', 'user'),
             'timecreated' => new lang_string('timecreated', 'core_reportbuilder'),
             'timemodified' => new lang_string('timemodified', 'core_reportbuilder'),
@@ -483,9 +466,6 @@ class user extends base {
      * @return filter[]
      */
     protected function get_all_filters(): array {
-        global $DB;
-
-        $filters = [];
         $tablealias = $this->get_table_alias('user');
 
         // Fullname filter.
@@ -501,14 +481,19 @@ class user extends base {
         ))
             ->add_joins($this->get_joins());
 
+        // Picture filter.
+        $filters[] = (new filter(
+            boolean_select::class,
+            'picture',
+            new lang_string('picture'),
+            $this->get_entity_name(),
+            "CASE WHEN {$tablealias}.picture > 0 THEN 1 ELSE 0 END",
+        ))
+            ->add_joins($this->get_joins());
+
         // User fields filters.
         $fields = $this->get_user_fields();
         foreach ($fields as $field => $name) {
-            $filterfieldsql = "{$tablealias}.{$field}";
-            if ($this->get_user_field_type($field) === column::TYPE_LONGTEXT) {
-                $filterfieldsql = $DB->sql_cast_to_char($filterfieldsql);
-            }
-
             $optionscallback = [static::class, 'get_options_for_' . $field];
             if (is_callable($optionscallback)) {
                 $classname = select::class;
@@ -525,7 +510,7 @@ class user extends base {
                 $field,
                 $name,
                 $this->get_entity_name(),
-                $filterfieldsql
+                "{$tablealias}.{$field}"
             ))
                 ->add_joins($this->get_joins());
 
@@ -547,33 +532,40 @@ class user extends base {
         ))
             ->add_joins($this->get_joins());
 
-        // Authentication method filter.
-        $filters[] = (new filter(
-            select::class,
-            'auth',
-            new lang_string('authentication', 'moodle'),
-            $this->get_entity_name(),
-            "{$tablealias}.auth"
-        ))
-            ->add_joins($this->get_joins())
-            ->set_options_callback(static function(): array {
-                $plugins = core_component::get_plugin_list('auth');
-                $enabled = get_string('pluginenabled', 'core_plugin');
-                $disabled = get_string('plugindisabled', 'core_plugin');
-                $authoptions = [$enabled => [], $disabled => []];
-
-                foreach ($plugins as $pluginname => $unused) {
-                    $plugin = get_auth_plugin($pluginname);
-                    if (is_enabled_auth($pluginname)) {
-                        $authoptions[$enabled][$pluginname] = $plugin->get_title();
-                    } else {
-                        $authoptions[$disabled][$pluginname] = $plugin->get_title();
-                    }
-                }
-                return $authoptions;
-            });
-
         return $filters;
+    }
+
+    /**
+     * Gets list of options if the filter supports it
+     *
+     * @param string $fieldname
+     * @return null|array
+     */
+    protected function get_options_for(string $fieldname): ?array {
+        static $cached = [];
+        if (!array_key_exists($fieldname, $cached)) {
+            $callable = [static::class, 'get_options_for_' . $fieldname];
+            if (is_callable($callable)) {
+                $cached[$fieldname] = $callable();
+            } else {
+                $cached[$fieldname] = null;
+            }
+        }
+        return $cached[$fieldname];
+    }
+
+    /**
+     * List of options for the field auth
+     *
+     * @return string[]
+     */
+    public static function get_options_for_auth(): array {
+        $authlist = array_keys(core_component::get_plugin_list('auth'));
+
+        return array_map(
+            fn(string $auth) => get_auth_plugin($auth)->get_title(),
+            array_combine($authlist, $authlist),
+        );
     }
 
     /**
@@ -582,6 +574,36 @@ class user extends base {
      * @return string[]
      */
     public static function get_options_for_country(): array {
-        return array_map('shorten_text', get_string_manager()->get_list_of_countries());
+        return get_string_manager()->get_list_of_countries();
+    }
+
+    /**
+     * List of options for the field lang.
+     *
+     * @return string[]
+     */
+    public static function get_options_for_lang(): array {
+        return get_string_manager()->get_list_of_translations();
+    }
+
+    /**
+     * List of options for the field timezone.
+     *
+     * @return string[]
+     */
+    public static function get_options_for_timezone(): array {
+        return core_date::get_list_of_timezones(null, true);
+    }
+
+    /**
+     * List of options for the field theme.
+     *
+     * @return string[]
+     */
+    public static function get_options_for_theme(): array {
+        return array_map(
+            fn(theme_config $theme) => $theme->get_theme_name(),
+            get_list_of_themes(),
+        );
     }
 }

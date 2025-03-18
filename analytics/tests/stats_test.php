@@ -16,6 +16,8 @@
 
 namespace core_analytics;
 
+use core_analytics\tests\mlbackend_helper_trait;
+
 defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/fixtures/test_indicator_fullname.php');
@@ -29,12 +31,14 @@ require_once(__DIR__ . '/fixtures/test_target_shortname.php');
  * @copyright 2019 David Mudrák <david@moodle.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class stats_test extends \advanced_testcase {
+final class stats_test extends \advanced_testcase {
+    use mlbackend_helper_trait;
 
     /**
      * Set up the test environment.
      */
     public function setUp(): void {
+        parent::setUp();
 
         $this->setAdminUser();
     }
@@ -42,7 +46,7 @@ class stats_test extends \advanced_testcase {
     /**
      * Test the {@link \core_analytics\stats::enabled_models()} implementation.
      */
-    public function test_enabled_models() {
+    public function test_enabled_models(): void {
 
         $this->resetAfterTest(true);
 
@@ -68,7 +72,10 @@ class stats_test extends \advanced_testcase {
     /**
      * Test the {@link \core_analytics\stats::predictions()} implementation.
      */
-    public function test_predictions() {
+    public function test_predictions(): void {
+        if (!self::is_mlbackend_python_configured()) {
+            $this->markTestSkipped('mlbackend_python is not configured.');
+        }
 
         $this->resetAfterTest(true);
 
@@ -113,8 +120,13 @@ class stats_test extends \advanced_testcase {
     /**
      * Test the {@link \core_analytics\stats::actions()} and {@link \core_analytics\stats::actions_not_useful()} implementation.
      */
-    public function test_actions() {
+    public function test_actions(): void {
         global $DB;
+
+        if (!self::is_mlbackend_python_configured()) {
+            $this->markTestSkipped('mlbackend_python is not configured.');
+        }
+
         $this->resetAfterTest(true);
 
         $model = \core_analytics\model::create(

@@ -2,12 +2,15 @@
     {{$element}}
         {{^element.frozen}}
         <input type="hidden" name="{{element.nameraw}}" value="_qf__force_multiselect_submission">
-        <select class="custom-select {{#error}}is-invalid{{/error}}" name="{{element.name}}"
+        <select class="form-select {{#error}}is-invalid{{/error}}" name="{{element.name}}"
             id="{{element.id}}"
             {{#element.multiple}}multiple{{/element.multiple}}
             {{#error}}
                 autofocus aria-describedby="{{element.iderror}}"
             {{/error}}
+            {{#required}}
+                aria-required="true"
+            {{/required}}
             {{{element.attributes}}} >
             {{#element.options}}
             <option value="{{value}}" {{#selected}}selected{{/selected}}>{{{text}}}</option>
@@ -16,7 +19,7 @@
         {{/element.frozen}}
         {{#element.frozen}}
             {{#element.options}}
-                {{#selected}}<span class="badge badge-info">{{{text}}}</span>{{/selected}}
+                {{#selected}}<span class="badge bg-info text-white">{{{text}}}</span>{{/selected}}
             {{/element.options}}
         {{/element.frozen}}
         {{#element.managestandardtagsurl}}

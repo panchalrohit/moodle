@@ -7,25 +7,24 @@
  * preset files instead.
  */
 
-$state-success-bg: theme-color-level("success", -10) !default;
-$state-success-border: theme-color-level("success", -9) !default;
+$state-success-bg: shift-color($success, -80%) !default;
+$state-success-border: shift-color($success, -70%) !default;
 
-$state-info-bg: theme-color-level("info", -10) !default;
-$state-info-border: theme-color-level("info", -9) !default;
+$state-info-bg: shift-color($info, -80%) !default;
+$state-info-border: shift-color($info, -70%) !default;
 
-$state-warning-bg: theme-color-level("warning", -10) !default;
-$state-warning-border: theme-color-level("warning", -10) !default;
+$state-warning-bg: shift-color($warning, -80%) !default;
+$state-warning-border: shift-color($warning, -80%) !default;
 
-$state-danger-bg: theme-color-level("danger", -10) !default;
-$state-danger-border: theme-color-level("danger", -9) !default;
+$state-danger-bg: shift-color($danger, -80%) !default;
+$state-danger-border: shift-color($danger, -70%) !default;
 
 $primary-nav-padding-y: ($spacer * 0.25) !default;
 $primary-nav-padding-x: ($spacer * 0.5) !default;
 
 $navbar-height: 60px !default;
-$stickyfooter-height: calc(max(96px, calc(#{$font-size-base} * 3))) !default;
+$stickyfooter-height: calc(max(80px, calc(#{$font-size-base} * 3))) !default;
 $course-content-maxwidth: 830px !default;
-$medium-content-maxwidth: 1120px !default;
 $h5p-content-maxwidth: 960px !default;
 
 $box-shadow-drawer-left: -0.25rem .25rem .8rem rgba($black, .025) !default;
@@ -33,20 +32,23 @@ $box-shadow-drawer-right: 0 .25rem .8rem rgba($black, .025) !default;
 
 $moremenu-height: 60px !default;
 
-$primary-light-background: theme-color-level('primary', -12) !default;
-$primary-light-border: theme-color-level('primary', -2) !default;
+$btn-icon-border-radius: $btn-border-radius !default;
+
+$primary-light-background: shift-color($primary, -90%) !default;
+$primary-light-border: shift-color($primary, -20%) !default;
 $primary-light-color: $body-color;
-$primary-light-hover: theme-color-level('primary', -10) !default;
+$primary-light-hover: shift-color($primary, -80%) !default;
 $activity-iconcontainer-height: 52px;
 $activity-iconcontainer-width: 52px;
 
-$activity-icon-administration-bg: #5d63f6 !default;
-$activity-icon-assessment-bg:     #eb66a2 !default;
-$activity-icon-collaboration-bg:  #f7634d !default;
-$activity-icon-communication-bg:  #11a676 !default;
-$activity-icon-content-bg:        #399be2 !default;
-$activity-icon-interface-bg:      #a378ff !default;
+$activity-icon-administration-bg:     #da58ef !default;
+$activity-icon-assessment-bg:         #f90086 !default;
+$activity-icon-collaboration-bg:      #5b40ff !default;
+$activity-icon-communication-bg:      #eb6200 !default;
+$activity-icon-content-bg:            #0099ad !default;
+$activity-icon-interactivecontent-bg: #8d3d1b !default;
 
+// This is just to make it easier to iterate the colors.
 $activity-icon-colors: () !default;
 $activity-icon-colors: map-merge(
     (
@@ -55,7 +57,7 @@ $activity-icon-colors: map-merge(
         "collaboration": $activity-icon-collaboration-bg,
         "communication": $activity-icon-communication-bg,
         "content": $activity-icon-content-bg,
-        "interface": $activity-icon-interface-bg
+        "interactivecontent": $activity-icon-interactivecontent-bg,
     ),
     $activity-icon-colors
 );
@@ -96,11 +98,6 @@ $backup-restore-state12-bg:             #222 !default;
 
 // Calendar
 $calendar-month-clickable-bg:   #ededed !default;
-
-
-// Chat
-$chat-users-list-img-border-color: #ccc !default;
-
 
 // Core
 $yui-overlay-bg:               #ffee69 !default;
@@ -160,7 +157,7 @@ $hover-tooltip-bg:               $white !default;
 $hover-tooltip-border-color:     rgba($black, .2) !default;
 $hover-tooltip-border-top-color: $white !default;
 
-$sr-only-active-bg: $white !default;
+$visually-hidden-active-bg: $white !default;
 
 $overlay-icon-bg:    rgba($white, .6) !default;
 $overlay-preview-bg: rgba($white, .8) !default;

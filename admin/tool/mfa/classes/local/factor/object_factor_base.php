@@ -135,6 +135,18 @@ abstract class object_factor_base implements object_factor {
     }
 
     /**
+     * Returns factor short description from language string.
+     *
+     * Base class implementation.
+     *
+     * @return string
+     * @throws \coding_exception
+     */
+    public function get_short_description(): string {
+        return get_string('settings:shortdescription', 'factor_'.$this->name);
+    }
+
+    /**
      * Returns factor help from language string.
      *
      * Base class implementation.
@@ -144,6 +156,19 @@ abstract class object_factor_base implements object_factor {
      */
     public function get_info(): string {
         return get_string('info', 'factor_'.$this->name);
+    }
+
+    /**
+     * Returns factor help from language string when there is factor management available.
+     *
+     * Base class implementation.
+     *
+     * @param int $factorid The factor we want manage info for.
+     * @return string
+     * @throws \coding_exception
+     */
+    public function get_manage_info(int $factorid): string {
+        return get_string('manageinfo', 'factor_'.$this->name, $this->get_label($factorid));
     }
 
     /**
@@ -215,6 +240,20 @@ abstract class object_factor_base implements object_factor {
      * @return stdClass|null the record if created, or null.
      */
     public function setup_user_factor(stdClass $data): stdClass|null {
+        return null;
+    }
+
+    /**
+     * Replaces a given factor and adds it to user's active factors list.
+     * Returns the new factor if it has been successfully replaced.
+     *
+     * Dummy implementation. Should be overridden in child class.
+     *
+     * @param stdClass $data The new factor data.
+     * @param int $id The id of the factor to replace.
+     * @return stdClass|null the record if created, or null.
+     */
+    public function replace_user_factor(stdClass $data, int $id): stdClass|null {
         return null;
     }
 
@@ -330,6 +369,18 @@ abstract class object_factor_base implements object_factor {
         $event->trigger();
 
         return true;
+    }
+
+
+    /**
+     * Returns true if factor class has factor records that can be replaced.
+     *
+     * Override in child class if necessary.
+     *
+     * @return bool
+     */
+    public function has_replace(): bool {
+        return false;
     }
 
     /**
@@ -537,6 +588,15 @@ abstract class object_factor_base implements object_factor {
      */
     public function get_setup_string(): string {
         return get_string('setupfactor', 'tool_mfa');
+    }
+
+    /**
+     * Gets the string for manage button on preferences page.
+     *
+     * @return string
+     */
+    public function get_manage_string(): string {
+        return get_string('managefactor', 'tool_mfa');
     }
 
     /**

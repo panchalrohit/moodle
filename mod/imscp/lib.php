@@ -24,6 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/deprecatedlib.php');
+
 /**
  * List of features supported in IMS CP module
  * @param string $feature FEATURE_xx constant for requested feature
@@ -40,7 +42,8 @@ function imscp_supports($feature) {
         case FEATURE_GRADE_OUTCOMES:          return false;
         case FEATURE_BACKUP_MOODLE2:          return true;
         case FEATURE_SHOW_DESCRIPTION:        return true;
-        case FEATURE_MOD_PURPOSE:             return MOD_PURPOSE_CONTENT;
+        case FEATURE_MOD_PURPOSE:
+            return MOD_PURPOSE_INTERACTIVECONTENT;
 
         default: return null;
     }

@@ -22,8 +22,10 @@ use context;
 use context_helper;
 use lang_string;
 use stdClass;
+use theme_config;
 use core_reportbuilder\local\entities\base;
 use core_reportbuilder\local\filters\boolean_select;
+use core_reportbuilder\local\filters\cohort as cohort_filter;
 use core_reportbuilder\local\filters\date;
 use core_reportbuilder\local\filters\select;
 use core_reportbuilder\local\filters\text;
@@ -100,8 +102,6 @@ class cohort extends base {
      * @return column[]
      */
     protected function get_all_columns(): array {
-        global $DB;
-
         $tablealias = $this->get_table_alias('cohort');
         $contextalias = $this->get_table_alias('context');
 
@@ -148,10 +148,6 @@ class cohort extends base {
             ->set_is_sortable(true);
 
         // Description column.
-        $descriptionfieldsql = "{$tablealias}.description";
-        if ($DB->get_dbfamily() === 'oracle') {
-            $descriptionfieldsql = $DB->sql_order_by_text($descriptionfieldsql, 1024);
-        }
         $columns[] = (new column(
             'description',
             new lang_string('description'),
@@ -160,9 +156,9 @@ class cohort extends base {
             ->add_joins($this->get_joins())
             ->add_join($this->get_context_join())
             ->set_type(column::TYPE_LONGTEXT)
-            ->add_field($descriptionfieldsql, 'description')
-            ->add_fields("{$tablealias}.descriptionformat, {$tablealias}.id, {$tablealias}.contextid")
+            ->add_fields("{$tablealias}.description, {$tablealias}.descriptionformat, {$tablealias}.id, {$tablealias}.contextid")
             ->add_fields(context_helper::get_preload_record_columns_sql($contextalias))
+            ->set_is_sortable(true)
             ->add_callback(static function(?string $description, stdClass $cohort): string {
                 global $CFG;
                 require_once("{$CFG->libdir}/filelib.php");
@@ -245,7 +241,14 @@ class cohort extends base {
             ->add_joins($this->get_joins())
             ->set_type(column::TYPE_TEXT)
             ->add_fields("{$tablealias}.theme")
-            ->set_is_sortable(true);
+            ->set_is_sortable(true)
+            ->add_callback(static function (?string $theme): string {
+                if ((string) $theme === '') {
+                    return '';
+                }
+
+                return get_string('pluginname', "theme_{$theme}");
+            });
 
         return $columns;
     }
@@ -256,9 +259,17 @@ class cohort extends base {
      * @return filter[]
      */
     protected function get_all_filters(): array {
-        global $DB;
-
         $tablealias = $this->get_table_alias('cohort');
+
+        // Cohort select filter.
+        $filters[] = (new filter(
+            cohort_filter::class,
+            'cohortselect',
+            new lang_string('selectcohort', 'core_cohort'),
+            $this->get_entity_name(),
+            "{$tablealias}.id"
+        ))
+            ->add_joins($this->get_joins());
 
         // Context filter.
         $filters[] = (new filter(
@@ -324,8 +335,24 @@ class cohort extends base {
             'description',
             new lang_string('description'),
             $this->get_entity_name(),
-            $DB->sql_cast_to_char("{$tablealias}.description")
+            "{$tablealias}.description"
         ))
+            ->add_joins($this->get_joins());
+
+        // Theme filter.
+        $filters[] = (new filter(
+            select::class,
+            'theme',
+            new lang_string('theme'),
+            $this->get_entity_name(),
+            "{$tablealias}.theme",
+        ))
+            ->set_options_callback(static function(): array {
+                return array_map(
+                    fn(theme_config $theme) => $theme->get_theme_name(),
+                    get_list_of_themes(),
+                );
+            })
             ->add_joins($this->get_joins());
 
         // Visible filter.

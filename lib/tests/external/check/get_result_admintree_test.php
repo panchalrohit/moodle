@@ -45,7 +45,7 @@ require_once($CFG->libdir . '/adminlib.php');
  * @copyright   Catalyst IT, 2023
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class get_result_admintree_test extends externallib_advanced_testcase {
+final class get_result_admintree_test extends externallib_advanced_testcase {
 
     /**
      * Sets up admin tree for the given settings.
@@ -73,7 +73,7 @@ class get_result_admintree_test extends externallib_advanced_testcase {
      *
      * @return array
      */
-    public static function execute_options_provider() : array {
+    public static function execute_options_provider(): array {
         return [
             'get check result (ok, no details)' => [
                 'triggererror' => false,
@@ -227,7 +227,6 @@ class get_result_admintree_test extends externallib_advanced_testcase {
         $root = $this->setup_admin_tree($settings);
 
         $method = new ReflectionMethod(get_result_admintree::class, 'get_check_from_setting');
-        $method->setAccessible(true);
 
         $result = $method->invoke(new get_result_admintree(), $searchid, $searchname, $root);
 

@@ -17,7 +17,7 @@
 namespace core\output\local\dropdown;
 
 use core\output\named_templatable;
-use renderable;
+use core\output\renderable;
 
 /**
  * Class to render a dropdown dialog element.
@@ -33,8 +33,8 @@ use renderable;
 class dialog implements named_templatable, renderable {
     /** Dropdown dialog positions. */
     public const POSITION = [
-        'start' => 'dropdown-menu-left',
-        'end' => 'dropdown-menu-right',
+        'start' => 'dropdown-menu-start',
+        'end' => 'dropdown-menu-end',
     ];
 
     /** Dropdown dialog positions. */

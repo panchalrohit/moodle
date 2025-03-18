@@ -27,7 +27,10 @@
 
 defined('MOODLE_INTERNAL') || die;
 
-use \core_grades\component_gradeitems;
+use core\di;
+use core\hook;
+use core_courseformat\formatactions;
+use core_grades\component_gradeitems;
 
 require_once($CFG->dirroot.'/course/lib.php');
 
@@ -180,7 +183,13 @@ function add_moduleinfo($moduleinfo, $course, $mform = null) {
 
     // Course_modules and course_sections each contain a reference to each other.
     // So we have to update one of them twice.
-    $sectionid = course_add_cm_to_section($course, $moduleinfo->coursemodule, $moduleinfo->section, $moduleinfo->beforemod);
+    $sectionid = course_add_cm_to_section(
+        $course,
+        $moduleinfo->coursemodule,
+        $moduleinfo->section,
+        $moduleinfo->beforemod,
+        $moduleinfo->modulename
+    );
 
     // Trigger event based on the action we did.
     // Api create_from_cm expects modname and id property, and we don't want to modify $moduleinfo since we are returning it.
@@ -395,13 +404,17 @@ function edit_module_post_actions($moduleinfo, $course) {
             // And if it actually needs regrading...
             $courseitem = grade_item::fetch_course_item($course->id);
             if ($courseitem->needsupdate) {
-                // Then don't do it as part of this form save, do it on an extra web request with a
-                // progress bar.
-                $moduleinfo->needsfrontendregrade = true;
+                // Queue an asynchronous regrade.
+                grade_regrade_final_grades($course->id, async: true);
             }
         } else {
             // Regrade now.
-            grade_regrade_final_grades($course->id);
+            $result = grade_regrade_final_grades($course->id);
+            if (is_array($result)) {
+                foreach ($result as $error) {
+                    \core\notification::add($error, \core\output\notification::NOTIFY_ERROR);
+                }
+            }
         }
     }
 
@@ -489,6 +502,11 @@ function set_moduleinfo_defaults($moduleinfo) {
         $moduleinfo->downloadcontent = DOWNLOAD_COURSE_CONTENT_ENABLED;
     }
 
+    // Module types with this flag set to false must always be in section number 0.
+    if (!course_modinfo::is_mod_type_visible_on_course($moduleinfo->modulename)) {
+        $moduleinfo->section = 0;
+    }
+
     return $moduleinfo;
 }
 
@@ -496,28 +514,34 @@ function set_moduleinfo_defaults($moduleinfo) {
  * Check that the user can add a module. Also returns some information like the module, context and course section info.
  * The fucntion create the course section if it doesn't exist.
  *
- * @param object $course the course of the module
- * @param object $modulename the module name
- * @param object $section the section of the module
+ * @param stdClass $course the course of the module
+ * @param string $modulename the module name
+ * @param int $sectionnum the section of the module
  * @return array list containing module, context, course section.
  * @throws moodle_exception if user is not allowed to perform the action or module is not allowed in this course
  */
-function can_add_moduleinfo($course, $modulename, $section) {
+function can_add_moduleinfo($course, $modulename, $sectionnum) {
     global $DB;
 
-    $module = $DB->get_record('modules', array('name'=>$modulename), '*', MUST_EXIST);
+    $module = $DB->get_record('modules', ['name' => $modulename], '*', MUST_EXIST);
 
     $context = context_course::instance($course->id);
     require_capability('moodle/course:manageactivities', $context);
 
-    course_create_sections_if_missing($course, $section);
-    $cw = get_fast_modinfo($course)->get_section_info($section);
+    // If the $sectionnum is a delegated section, we cannot execute create_if_missing
+    // because it only works to create regular sections. To prevent that from happening, we
+    // check if the section is already there, no matter if it is delegated or not.
+    $sectioninfo = get_fast_modinfo($course)->get_section_info($sectionnum);
+    if (!$sectioninfo) {
+        formatactions::section($course)->create_if_missing([$sectionnum]);
+        $sectioninfo = get_fast_modinfo($course)->get_section_info($sectionnum);
+    }
 
     if (!course_allowed_module($course, $module->name)) {
         throw new \moodle_exception('moduledisable');
     }
 
-    return array($module, $context, $cw);
+    return [$module, $context, $sectioninfo];
 }
 
 /**
@@ -611,14 +635,18 @@ function update_moduleinfo($cm, $moduleinfo, $course, $mform = null) {
         // This code is used both when submitting the form, which uses a long
         // name to avoid clashes, and by unit test code which uses the real
         // name in the table.
+        $newavailability = $cm->availability;
         if (property_exists($moduleinfo, 'availabilityconditionsjson')) {
             if ($moduleinfo->availabilityconditionsjson !== '') {
-                $cm->availability = $moduleinfo->availabilityconditionsjson;
+                $newavailability = $moduleinfo->availabilityconditionsjson;
             } else {
-                $cm->availability = null;
+                $newavailability = null;
             }
         } else if (property_exists($moduleinfo, 'availability')) {
-            $cm->availability = $moduleinfo->availability;
+            $newavailability = $moduleinfo->availability;
+        }
+        if ($cm->availability != $newavailability) {
+            $cm->availability = $newavailability;
         }
         // If there is any availability data, verify it.
         if ($cm->availability) {
@@ -716,6 +744,16 @@ function update_moduleinfo($cm, $moduleinfo, $course, $mform = null) {
         $cminfo = cm_info::create($cm);
         $completion->reset_all_state($cminfo);
     }
+
+    if ($cm->name != $moduleinfo->name) {
+        di::get(hook\manager::class)->dispatch(
+            new \core_courseformat\hook\after_cm_name_edited(
+                get_fast_modinfo($course)->get_cm($cm->id),
+                $moduleinfo->name
+            ),
+        );
+    }
+
     $cm->name = $moduleinfo->name;
     \core\event\course_module_updated::create_from_cm($cm, $modcontext)->trigger();
 
@@ -748,6 +786,7 @@ function include_modulelib($modulename) {
  */
 function get_moduleinfo_data($cm, $course) {
     global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
 
     list($cm, $context, $module, $data, $cw) = can_update_moduleinfo($cm);
 
@@ -852,9 +891,16 @@ function get_moduleinfo_data($cm, $course) {
  * @param  string $suffix the suffix to add to the name of the completion rules.
  * @return array module information about other required data
  * @since  Moodle 3.2
+ * @throws coding_exception if you try to set a section other than 0 on a module type that has feature flag FEATURE_CAN_DISPLAY
+ * set to false.
  */
 function prepare_new_moduleinfo_data($course, $modulename, $section, string $suffix = '') {
     global $CFG;
+
+    // Module types with this flag set to false must always be in section number 0.
+    if ($section != 0 && !course_modinfo::is_mod_type_visible_on_course($modulename)) {
+        throw new coding_exception("Modules with feature flag FEATURE_CAN_DISPLAY set to false can only be in section 0");
+    }
 
     list($module, $context, $cw) = can_add_moduleinfo($course, $modulename, $section);
 
@@ -899,6 +945,12 @@ function prepare_new_moduleinfo_data($course, $modulename, $section, string $suf
             );
             $formfield = 'advancedgradingmethod_'.$areaname;
             $data->{$formfield} = '';
+        }
+    }
+
+    if (plugin_supports('mod', $data->modulename, FEATURE_QUICKCREATE)) {
+        if (get_string_manager()->string_exists('quickcreatename', "mod_{$data->modulename}")) {
+            $data->name = get_string("quickcreatename", "mod_{$data->modulename}");
         }
     }
 

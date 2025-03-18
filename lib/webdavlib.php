@@ -50,8 +50,6 @@ class webdav_client {
     private $_socket = '';
     private $_path ='/';
     private $_auth = false;
-    private $_user;
-    private $_pass;
 
     private $_socket_timeout = 5;
     private $_errno;
@@ -89,10 +87,10 @@ class webdav_client {
     private $oauthtoken;
 
     /** @var string Username (for basic/digest auth, see $auth). */
-    private $user;
+    private $_user;
 
     /** @var string Password (for basic/digest auth, see $auth). */
-    private $pass;
+    private $_pass;
 
     /** @var mixed to store xml data that need to be handled. */
     private $_lock_ref_cdata;
@@ -119,8 +117,8 @@ class webdav_client {
             $this->_server = $server;
         }
         if (!empty($user) && !empty($pass)) {
-            $this->user = $user;
-            $this->pass = $pass;
+            $this->_user = $user;
+            $this->_pass = $pass;
         }
         $this->_auth = $auth;
         $this->_socket = $socket;
@@ -664,9 +662,8 @@ class webdav_client {
                         unset($this->_xmltree[$this->_parserid]);
                         xml_parser_set_option($this->_parser,XML_OPTION_SKIP_WHITE,0);
                         xml_parser_set_option($this->_parser,XML_OPTION_CASE_FOLDING,0);
-                        xml_set_object($this->_parser, $this);
-                        xml_set_element_handler($this->_parser, "_lock_startElement", "_endElement");
-                        xml_set_character_data_handler($this->_parser, "_lock_cdata");
+                        xml_set_element_handler($this->_parser, [$this, "_lock_startElement"], [$this, "_endElement"]);
+                        xml_set_character_data_handler($this->_parser, [$this, "_lock_cdata"]);
 
                         if (!xml_parse($this->_parser, $response['body'])) {
                             die(sprintf("XML error: %s at line %d",
@@ -762,9 +759,8 @@ class webdav_client {
                         unset($this->_xmltree[$this->_parserid]);
                         xml_parser_set_option($this->_parser,XML_OPTION_SKIP_WHITE,0);
                         xml_parser_set_option($this->_parser,XML_OPTION_CASE_FOLDING,0);
-                        xml_set_object($this->_parser, $this);
-                        xml_set_element_handler($this->_parser, "_delete_startElement", "_endElement");
-                        xml_set_character_data_handler($this->_parser, "_delete_cdata");
+                        xml_set_element_handler($this->_parser, [$this, "_delete_startElement"], [$this, "_endElement"]);
+                        xml_set_character_data_handler($this->_parser, [$this, "_delete_cdata"]);
 
                         if (!xml_parse($this->_parser, $response['body'])) {
                             die(sprintf("XML error: %s at line %d",
@@ -855,9 +851,8 @@ EOD;
                         xml_parser_set_option($this->_parser,XML_OPTION_SKIP_WHITE,0);
                         xml_parser_set_option($this->_parser,XML_OPTION_CASE_FOLDING,0);
                         // xml_parser_set_option($this->_parser,XML_OPTION_TARGET_ENCODING,'UTF-8');
-                        xml_set_object($this->_parser, $this);
-                        xml_set_element_handler($this->_parser, "_propfind_startElement", "_endElement");
-                        xml_set_character_data_handler($this->_parser, "_propfind_cdata");
+                        xml_set_element_handler($this->_parser, [$this, "_propfind_startElement"], [$this, "_endElement"]);
+                        xml_set_character_data_handler($this->_parser, [$this, "_propfind_cdata"]);
 
 
                         if (!xml_parse($this->_parser, $response['body'])) {
@@ -1640,7 +1635,7 @@ EOD;
      * @param resource $fp the file handle to write to (or null)
      * @param string &$buffer the buffer to append to (if $fp is null)
      */
-    static private function update_file_or_buffer($chunk, $fp, &$buffer) {
+    private static function update_file_or_buffer($chunk, $fp, &$buffer) {
         if ($fp) {
             fwrite($fp, $chunk);
         } else {

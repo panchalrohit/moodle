@@ -94,6 +94,44 @@ class core_course_renderer extends plugin_renderer_base {
     }
 
     /**
+     * Renders course info box.
+     *
+     * @param stdClass $course course object
+     * @param string[] $widgets array of enrolment widgets
+     * @param \core\url|null $returnurl return url
+     * @return string
+     */
+    public function enrolment_options(stdClass $course, array $widgets, ?\core\url $returnurl = null): string {
+        if (!$widgets) {
+            if (isguestuser()) {
+                $message = get_string('noguestaccess', 'enrol');
+                $continuebutton = $this->output->continue_button(get_login_url());
+            } else if ($returnurl) {
+                $message = get_string('notenrollable', 'enrol');
+                $continuebutton = $this->output->continue_button($returnurl);
+            } else {
+                $url = get_local_referer(false);
+                if (empty($url)) {
+                    $url = new moodle_url('/index.php');
+                }
+                $message = get_string('notenrollable', 'enrol');
+                $continuebutton = $this->output->continue_button($url);
+            }
+        }
+
+        $courseinfobox = $this->course_info_box($course);
+
+        $templatecontext = [
+            'heading' => get_string('enrolmentoptions', 'enrol'),
+            'courseinfobox' => $courseinfobox,
+            'widgets' => array_values($widgets),
+            'message' => $message ?? '',
+            'continuebutton' => $continuebutton ?? '',
+        ];
+        return $this->render_from_template('core_enrol/enrolment_options', $templatecontext);
+    }
+
+    /**
      * Renderers a structured array of courses and categories into a nice XHTML tree structure.
      *
      * @deprecated since 2.5
@@ -101,7 +139,7 @@ class core_course_renderer extends plugin_renderer_base {
      * @param array $ignored argument ignored
      * @return string
      */
-    public final function course_category_tree(array $ignored) {
+    final public function course_category_tree(array $ignored) {
         debugging('Function core_course_renderer::course_category_tree() is deprecated, please use frontpage_combo_list()', DEBUG_DEVELOPER);
         return $this->frontpage_combo_list();
     }
@@ -115,7 +153,7 @@ class core_course_renderer extends plugin_renderer_base {
      * @param int $depth
      * @return string
      */
-    protected final function course_category_tree_category(stdClass $category, $depth=1) {
+    final protected function course_category_tree_category(stdClass $category, $depth=1) {
         debugging('Function core_course_renderer::course_category_tree_category() is deprecated', DEBUG_DEVELOPER);
         return '';
     }
@@ -197,7 +235,7 @@ class core_course_renderer extends plugin_renderer_base {
     /**
      * @deprecated since 4.0 - please do not use this function any more.
      */
-    public function course_section_cm_edit_actions($actions, cm_info $mod = null, $displayoptions = array()) {
+    public function course_section_cm_edit_actions($actions, ?cm_info $mod = null, $displayoptions = array()) {
 
         throw new coding_exception(
             'course_section_cm_edit_actions can not be used any more. Please, use ' .
@@ -224,16 +262,20 @@ class core_course_renderer extends plugin_renderer_base {
             return '';
         }
 
-        $data = [
-            'sectionid' => $section,
-            'sectionreturn' => $sectionreturn
-        ];
-        $ajaxcontrol = $this->render_from_template('course/activitychooserbutton', $data);
+        $sectioninfo = get_fast_modinfo($course)->get_section_info($section);
+
+        $activitychooserbutton = new \core_course\output\activitychooserbutton($sectioninfo, null, $sectionreturn);
 
         // Load the JS for the modal.
         $this->course_activitychooser($course->id);
 
-        return $ajaxcontrol;
+        return $this->render_from_template(
+            'core_courseformat/local/content/divider',
+            [
+                'content' => $this->render($activitychooserbutton),
+                'extraclasses' => 'always-visible my-3',
+            ]
+        );
     }
 
     /**
@@ -377,8 +419,8 @@ class core_course_renderer extends plugin_renderer_base {
         }
 
         $altname = get_accesshide(' ' . $cm->modfullname);
-        $name = html_writer::empty_tag('img', array('src' => $cm->get_icon_url(),
-                'class' => 'iconlarge activityicon', 'alt' => ' ', 'role' => 'presentation')) .
+        $name = html_writer::empty_tag('img', ['src' => $cm->get_icon_url(),
+                'class' => 'activityicon', 'alt' => '']) .
             html_writer::tag('span', ' '.$cm->get_formatted_name() . $altname, array('class' => 'instancename'));
         $formattedinfo = \core_availability\info::format_info($cm->availableinfo, $cm->get_course());
         return html_writer::div($name, 'activityinstance-error') .
@@ -576,7 +618,7 @@ class core_course_renderer extends plugin_renderer_base {
                 $rolenames = array_map(function ($role) {
                     return $role->displayname;
                 }, $coursecontact['roles']);
-                $name = html_writer::tag('span', implode(", ", $rolenames).': ', ['class' => 'font-weight-bold']);
+                $name = html_writer::tag('span', implode(", ", $rolenames).': ', ['class' => 'fw-bold']);
                 $name .= html_writer::link(
                    \core_user::get_profile_url($coursecontact['user'], context_system::instance()),
                    $coursecontact['username']
@@ -632,7 +674,7 @@ class core_course_renderer extends plugin_renderer_base {
         if ($chelper->get_show_courses() == self::COURSECAT_SHOW_COURSES_EXPANDED_WITH_CAT) {
             if ($cat = core_course_category::get($course->category, IGNORE_MISSING)) {
                 $content .= html_writer::start_tag('div', ['class' => 'coursecat']);
-                $content .= html_writer::tag('span', get_string('category').': ', ['class' => 'font-weight-bold']);
+                $content .= html_writer::tag('span', get_string('category').': ', ['class' => 'fw-bold']);
                 $content .= html_writer::link(new moodle_url('/course/index.php', ['categoryid' => $cat->id]),
                         $cat->get_formatted_name(), ['class' => $cat->visible ? '' : 'dimmed']);
                 $content .= html_writer::end_tag('div');
@@ -1501,19 +1543,11 @@ class core_course_renderer extends plugin_renderer_base {
     }
 
     /**
-     * Renders the activity information.
-     *
-     * Defer to template.
-     *
      * @deprecated since Moodle 4.3 MDL-78744
-     * @todo MDL-78926 This method will be deleted in Moodle 4.7
-     * @param \core_course\output\activity_information $page
-     * @return string html for the page
      */
-    public function render_activity_information(\core_course\output\activity_information $page) {
-        debugging('render_activity_information method is deprecated.', DEBUG_DEVELOPER);
-        $data = $page->export_for_template($this->output);
-        return $this->output->render_from_template('core_course/activity_info', $data);
+    #[\core\attribute\deprecated(null, since: '4.3', mdl: 'MDL-78744', final: true)]
+    public function render_activity_information() {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
@@ -1623,7 +1657,7 @@ class core_course_renderer extends plugin_renderer_base {
                 $subtext = get_string('subscribe', 'forum');
             }
             $suburl = new moodle_url('/mod/forum/subscribe.php', array('id' => $forum->id, 'sesskey' => sesskey()));
-            $output .= html_writer::tag('div', html_writer::link($suburl, $subtext), array('class' => 'subscribelink'));
+            $output .= html_writer::tag('div', html_writer::link($suburl, $subtext), ['class' => 'subscribelink text-end']);
         }
 
         $coursemodule = get_coursemodule_from_instance('forum', $forum->id);
@@ -2013,17 +2047,10 @@ class coursecat_helper {
         $options = (array)$options;
         $context = context_course::instance($course->id);
         if (!isset($options['context'])) {
-            // TODO see MDL-38521
-            // option 1 (current), page context - no code required
-            // option 2, system context
-            // $options['context'] = context_system::instance();
-            // option 3, course context:
-            // $options['context'] = $context;
-            // option 4, course category context:
-            // $options['context'] = $context->get_parent_context();
+            $options['context'] = $context;
         }
         $summary = file_rewrite_pluginfile_urls($course->summary, 'pluginfile.php', $context->id, 'course', 'summary', null);
-        $summary = format_text($summary, $course->summaryformat, $options, $course->id);
+        $summary = format_text($summary, $course->summaryformat, $options);
         if (!empty($this->searchcriteria['search'])) {
             $summary = highlight($this->searchcriteria['search'], $summary);
         }

@@ -40,6 +40,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use mod_quiz\output\edit_nav_actions;
 use mod_quiz\quiz_settings;
 
 require_once(__DIR__ . '/../../config.php');
@@ -49,7 +50,7 @@ require_once($CFG->dirroot . '/question/editlib.php');
 $mdlscrollto = optional_param('mdlscrollto', '', PARAM_INT);
 
 list($thispageurl, $contexts, $cmid, $cm, $quiz, $pagevars) =
-    question_edit_setup('editq', '/mod/quiz/edit.php', true);
+    question_edit_setup('editq', '/mod/quiz/edit.php');
 
 $PAGE->set_url($thispageurl);
 $PAGE->set_secondary_active_tab("mod_quiz_edit");
@@ -63,7 +64,7 @@ $quizobj = new quiz_settings($quiz, $cm, $course);
 $structure = $quizobj->get_structure();
 $gradecalculator = $quizobj->get_grade_calculator();
 
-$defaultcategoryobj = question_make_default_categories($contexts->all());
+$defaultcategoryobj = question_get_default_category($contexts->lowest()->id, true);
 $defaultcategory = $defaultcategoryobj->id . ',' . $defaultcategoryobj->contextid;
 
 $quizhasattempts = quiz_has_attempts($quiz->id);
@@ -186,7 +187,12 @@ if ($message = optional_param('message', '', PARAM_TEXT)) {
     core\notification::add($message, core\notification::SUCCESS);
 }
 
-echo $OUTPUT->header();
+$tertiarynav = new edit_nav_actions($cmid, edit_nav_actions::SUMMARY);
+
+// Do output.
+echo $output->header();
+echo $output->render($tertiarynav);
+
 // Initialise the JavaScript.
 $quizeditconfig = new stdClass();
 $quizeditconfig->url = $thispageurl->out(true, ['qbanktool' => '0']);
@@ -211,4 +217,4 @@ echo $output->edit_page($quizobj, $structure, $contexts, $thispageurl, $pagevars
 // Questions wrapper end.
 echo html_writer::end_tag('div');
 
-echo $OUTPUT->footer();
+echo $output->footer();

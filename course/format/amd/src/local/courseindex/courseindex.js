@@ -23,9 +23,10 @@
  */
 
 import {BaseComponent} from 'core/reactive';
+import Collapse from 'theme_boost/bootstrap/collapse';
 import {getCurrentCourseEditor} from 'core_courseformat/courseeditor';
-import jQuery from 'jquery';
 import ContentTree from 'core_courseformat/local/courseeditor/contenttree';
+import log from "core/log";
 
 export default class Component extends BaseComponent {
 
@@ -41,7 +42,7 @@ export default class Component extends BaseComponent {
             SECTION_CMLIST: `[data-for='cmlist']`,
             CM: `[data-for='cm']`,
             TOGGLER: `[data-action="togglecourseindexsection"]`,
-            COLLAPSE: `[data-toggle="collapse"]`,
+            COLLAPSE: `[data-bs-toggle="collapse"]`,
             DRAWER: `.drawer`,
         };
         // Default classes to toggle on refresh.
@@ -65,8 +66,14 @@ export default class Component extends BaseComponent {
      * @return {Component}
      */
     static init(target, selectors) {
+        let element = document.querySelector(target);
+        // TODO Remove this if condition as part of MDL-83851.
+        if (!element) {
+            log.debug('Init component with id is deprecated, use a query selector instead.');
+            element = document.getElementById(target);
+        }
         return new this({
-            element: document.getElementById(target),
+            element,
             reactive: getCurrentCourseEditor(),
             selectors,
         });
@@ -91,7 +98,7 @@ export default class Component extends BaseComponent {
             this.cms[cm.dataset.id] = cm;
         });
 
-        // Set the page item if any.
+        this._expandPageCmSectionIfNecessary(state);
         this._refreshPageItem({element: state.course, state});
 
         // Configure Aria Tree.
@@ -129,11 +136,15 @@ export default class Component extends BaseComponent {
 
             const section = event.target.closest(this.selectors.SECTION);
             const toggler = section.querySelector(this.selectors.COLLAPSE);
-            const isCollapsed = toggler?.classList.contains(this.classes.COLLAPSED) ?? false;
+            let isCollapsed = toggler?.classList.contains(this.classes.COLLAPSED) ?? false;
+            // If the click was on the chevron, Bootstrap already toggled the section before this event.
+            if (isChevron) {
+                isCollapsed = !isCollapsed;
+            }
 
-            if (isChevron || isCollapsed) {
-                // Update the state.
-                const sectionId = section.getAttribute('data-id');
+            // Update the state.
+            const sectionId = section.getAttribute('data-id');
+            if (!sectionlink || isCollapsed) {
                 this.reactive.dispatch(
                     'sectionIndexCollapsed',
                     [sectionId],
@@ -190,11 +201,11 @@ export default class Component extends BaseComponent {
             forceValue = (element.indexcollapsed) ? false : true;
         }
 
-        // Course index is based on Bootstrap 4 collapsibles. To collapse them we need jQuery to
-        // interact with collapsibles methods. Hopefully, this will change in Bootstrap 5 because
-        // it does not require jQuery anymore (when MDL-71979 is integrated).
-        const togglerValue = (forceValue) ? 'show' : 'hide';
-        jQuery(collapsible).collapse(togglerValue);
+        if (forceValue) {
+            Collapse.getOrCreateInstance(collapsible, {toggle: false}).show();
+        } else {
+            Collapse.getOrCreateInstance(collapsible, {toggle: false}).hide();
+        }
     }
 
     /**
@@ -217,6 +228,20 @@ export default class Component extends BaseComponent {
                 250
             );
         }
+    }
+
+    /**
+     * Expand a section if the current page is a section's cm.
+     *
+     * @private
+     * @param {Object} state the course state.
+     */
+    _expandPageCmSectionIfNecessary(state) {
+        const pageCmInfo = this.reactive.getPageAnchorCmInfo();
+        if (!pageCmInfo) {
+            return;
+        }
+        this._expandSectionNode(state.section.get(pageCmInfo.sectionid), true);
     }
 
     /**
@@ -286,6 +311,9 @@ export default class Component extends BaseComponent {
     _refreshSectionCmlist({element}) {
         const cmlist = element.cmlist ?? [];
         const listparent = this.getElement(this.selectors.SECTION_CMLIST, element.id);
+        if (!listparent) {
+            return;
+        }
         this._fixOrder(listparent, cmlist, this.cms);
     }
 
@@ -293,10 +321,10 @@ export default class Component extends BaseComponent {
      * Refresh the section list.
      *
      * @param {object} param
-     * @param {Object} param.element
+     * @param {Object} param.state
      */
-    _refreshCourseSectionlist({element}) {
-        const sectionlist = element.sectionlist ?? [];
+    _refreshCourseSectionlist({state}) {
+        const sectionlist = this.reactive.getExporter().listedSectionIds(state);
         this._fixOrder(this.element, sectionlist, this.sections);
     }
 
@@ -324,7 +352,7 @@ export default class Component extends BaseComponent {
             const item = allitems[itemid];
             // Get the current element at that position.
             const currentitem = container.children[index];
-            if (currentitem === undefined) {
+            if (currentitem === undefined && item != undefined) {
                 container.append(item);
                 return;
             }

@@ -148,7 +148,7 @@ class summary_table extends table_sql {
                 'id' => 'select-all-users',
                 'name' => 'select-all-users',
                 'label' => get_string('selectall'),
-                'labelclasses' => 'sr-only',
+                'labelclasses' => 'visually-hidden',
                 'classes' => 'm-1',
                 'checked' => false
             ]);
@@ -370,14 +370,14 @@ class summary_table extends table_sql {
     }
 
     /**
-     * Override the default implementation to set a decent heading level.
+     * Override the default implementation to set a notification.
      *
      * @return void.
      */
     public function print_nothing_to_display(): void {
         global $OUTPUT;
 
-        echo $OUTPUT->notification(get_string('nothingtodisplay'), \core\output\notification::NOTIFY_INFO);
+        echo $OUTPUT->notification(get_string('nothingtodisplay'), 'info', false);
     }
 
     /**
@@ -736,7 +736,7 @@ class summary_table extends table_sql {
                 $orderby = " ORDER BY {$sort}";
             }
         } else {
-            $selectfields = 'COUNT(u.id)';
+            $selectfields = 'COUNT(DISTINCT u.id)';
         }
 
         $sql = "SELECT {$selectfields}

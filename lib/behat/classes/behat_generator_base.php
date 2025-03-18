@@ -163,7 +163,7 @@ abstract class behat_generator_base {
      *
      * @return array entity name => information about how to generate.
      */
-    protected abstract function get_creatable_entities(): array;
+    abstract protected function get_creatable_entities(): array;
 
     /**
      * Get the list of available generators for this class.
@@ -228,7 +228,7 @@ abstract class behat_generator_base {
             foreach ($entityinfo['required'] as $requiredfield) {
                 if (!isset($elementdata[$requiredfield])) {
                     throw new Exception($this->name_for_errors($generatortype) .
-                            ' requires the field ' . $requiredfield . ' to be specified');
+                            ' requires the field "' . $requiredfield . '" to be specified');
                 }
             }
 

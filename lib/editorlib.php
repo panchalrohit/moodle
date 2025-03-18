@@ -95,7 +95,7 @@ function editors_get_enabled() {
     global $CFG;
 
     if (empty($CFG->texteditors)) {
-        $CFG->texteditors = 'atto,tiny,textarea';
+        $CFG->texteditors = 'tiny,textarea';
     }
     $active = array();
     foreach(explode(',', $CFG->texteditors) as $e) {
@@ -153,7 +153,7 @@ function editors_head_setup() {
     global $CFG;
 
     if (empty($CFG->texteditors)) {
-        $CFG->texteditors = 'atto,tiny,textarea';
+        $CFG->texteditors = 'tiny,textarea';
     }
     $active = explode(',', $CFG->texteditors);
 
@@ -181,25 +181,25 @@ abstract class texteditor {
      * Is editor supported in current browser?
      * @return bool
      */
-    public abstract function supported_by_browser();
+    abstract public function supported_by_browser();
 
     /**
      * Returns list of supported text formats
      * @return array Array (FORMAT=>FORMAT)
      */
-    public abstract function get_supported_formats();
+    abstract public function get_supported_formats();
 
     /**
      * Returns main preferred text format.
      * @return int text format
      */
-    public abstract function get_preferred_format();
+    abstract public function get_preferred_format();
 
     /**
      * Supports file picker and repos?
      * @return object book object
      */
-    public abstract function supports_repositories();
+    abstract public function supports_repositories();
 
     /**
      * @var string $text The text set to the editor in the form.
@@ -234,7 +234,7 @@ abstract class texteditor {
      * @param obejct $fpoptions file picker options
      * @return void
      */
-    public abstract function use_editor($elementid, array $options=null, $fpoptions = null);
+    abstract public function use_editor($elementid, ?array $options=null, $fpoptions = null);
 
     /**
      * Setup all JS and CSS needed for editor.

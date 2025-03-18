@@ -43,12 +43,12 @@ require_once($CFG->dirroot . '/grade/lib.php');
  * @copyright 2016 Jun Pataleta <jun@moodle.com>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class lib_test extends \advanced_testcase {
+final class lib_test extends \advanced_testcase {
 
     /**
      * Test can_output_item.
      */
-    public function test_can_output_item() {
+    public function test_can_output_item(): void {
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -182,7 +182,7 @@ class lib_test extends \advanced_testcase {
      *
      * @covers \grade_report::ungraded_counts
      */
-    public function test_ungraded_counts_count_sumgrades() {
+    public function test_ungraded_counts_count_sumgrades(): void {
         global $DB;
 
         $this->resetAfterTest(true);
@@ -370,14 +370,14 @@ class lib_test extends \advanced_testcase {
 
     /**
      * Tests that ungraded_counts calculates count and sum of grades correctly when there are hidden grades.
-     * @dataProvider ungraded_counts_hidden_grades_data()
+     * @dataProvider ungraded_counts_hidden_grades_data
      * @param bool $hidden Whether to inlcude hidden grades or not.
      * @param array $expectedcount expected count value (i.e. number of ugraded grades)
      * @param array $expectedsumarray expceted sum of grades
      *
      * @covers \grade_report::ungraded_counts
      */
-    public function test_ungraded_counts_hidden_grades(bool $hidden, array $expectedcount, array $expectedsumarray) {
+    public function test_ungraded_counts_hidden_grades(bool $hidden, array $expectedcount, array $expectedsumarray): void {
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -457,17 +457,17 @@ class lib_test extends \advanced_testcase {
      *
      * @return array of testing scenarios
      */
-    public function ungraded_counts_hidden_grades_data() : array {
+    public static function ungraded_counts_hidden_grades_data(): array {
         return [
             'nohidden' => [
                 'hidden' => false,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 6.00000, 'Grade item1' => 3.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 6.00000, 'Grade item1' => 3.00000],
             ],
             'includehidden' => [
                 'hidden' => true,
-                'count' => ['course' => 1, 'Grade item1' => 2],
-                'sumarray' => ['course' => 6.00000, 'Grade item1' => 6.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 2],
+                'expectedsumarray' => ['course' => 6.00000, 'Grade item1' => 6.00000],
             ],
         ];
     }
@@ -477,7 +477,7 @@ class lib_test extends \advanced_testcase {
      *
      * @covers \grade_report::ungraded_counts
      */
-    public function test_ungraded_count_sumgrades_groups() {
+    public function test_ungraded_count_sumgrades_groups(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -630,7 +630,7 @@ class lib_test extends \advanced_testcase {
 
     /**
      * Tests that ungraded_counts calculates count and sum of grades correctly when there are hidden grades.
-     * @dataProvider ungraded_counts_only_active_enrol_data()
+     * @dataProvider ungraded_counts_only_active_enrol_data
      * @param bool $onlyactive Site setting to show only active users.
      * @param int $hascapability Capability constant
      * @param bool|null $showonlyactiveenrolpref Show only active user preference.
@@ -640,7 +640,7 @@ class lib_test extends \advanced_testcase {
      * @covers \grade_report::ungraded_counts
      */
     public function test_ungraded_counts_only_active_enrol(bool $onlyactive,
-            int $hascapability, ?bool $showonlyactiveenrolpref, array $expectedcount, array $expectedsumarray) {
+            int $hascapability, ?bool $showonlyactiveenrolpref, array $expectedcount, array $expectedsumarray): void {
         global $CFG, $DB;
 
         $this->resetAfterTest();
@@ -730,70 +730,70 @@ class lib_test extends \advanced_testcase {
      *
      * @return array of testing scenarios
      */
-    public function ungraded_counts_only_active_enrol_data(): array {
+    public static function ungraded_counts_only_active_enrol_data(): array {
         return [
             'Show only active and no user preference' => [
                 'onlyactive' => true,
                 'hascapability' => 1,
                 'showonlyactiveenrolpref' => null,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 1, 'Grade item1' => 1.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 1, 'Grade item1' => 1.00000],
             ],
             'Show only active and user preference set to true' => [
                 'onlyactive' => true,
                 'hascapability' => 1,
                 'showonlyactiveenrolpref' => true,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 1, 'Grade item1' => 1.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 1, 'Grade item1' => 1.00000],
             ],
             'Show only active and user preference set to false' => [
                 'onlyactive' => true,
                 'hascapability' => 1,
                 'showonlyactiveenrolpref' => false,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 3.00000, 'Grade item1' => 3.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 3.00000, 'Grade item1' => 3.00000],
             ],
             'Include suspended with capability and user preference set to true' => [
                 'onlyactive' => false,
                 'hascapability' => 1,
                 'showonlyactiveenrolpref' => true,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 1.00000, 'Grade item1' => 1.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 1.00000, 'Grade item1' => 1.00000],
             ],
             'Include suspended with capability and user preference set to false' => [
                 'onlyactive' => false,
                 'hascapability' => 1,
                 'showonlyactiveenrolpref' => false,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 3.00000, 'Grade item1' => 3.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 3.00000, 'Grade item1' => 3.00000],
             ],
             'Include suspended with capability and no user preference' => [
                 'onlyactive' => false,
                 'hascapability' => 1,
                 'showonlyactiveenrolpref' => null,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 3.00000, 'Grade item1' => 3.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 3.00000, 'Grade item1' => 3.00000],
             ],
             'Include suspended without capability' => [
                 'onlyactive' => false,
                 'hascapability' => -1,
                 'showonlyactiveenrolpref' => null,
-                'count' => ['course' => 1, 'Grade item1' => 1],
-                'sumarray' => ['course' => 1.00000, 'Grade item1' => 1.00000],
+                'expectedcount' => ['course' => 1, 'Grade item1' => 1],
+                'expectedsumarray' => ['course' => 1.00000, 'Grade item1' => 1.00000],
             ],
         ];
     }
 
     /**
      * Tests for calculate_average.
-     * @dataProvider calculate_average_data()
+     * @dataProvider calculate_average_data
      * @param int $meanselection Whether to inlcude all grades or non-empty grades in aggregation.
      * @param array $expectedmeancount expected meancount value
      * @param array $expectedaverage expceted average value
      *
      * @covers \grade_report::calculate_average
      */
-    public function test_calculate_average(int $meanselection, array $expectedmeancount, array $expectedaverage) {
+    public function test_calculate_average(int $meanselection, array $expectedmeancount, array $expectedaverage): void {
         global $DB;
 
         $this->resetAfterTest(true);
@@ -878,7 +878,7 @@ class lib_test extends \advanced_testcase {
      *
      * @return array of testing scenarios
      */
-    public function calculate_average_data() : array {
+    public static function calculate_average_data(): array {
         return [
             'Non-empty grades' => [
                 'meanselection' => 1,
@@ -902,7 +902,7 @@ class lib_test extends \advanced_testcase {
      *
      * @covers \grade_report::item_types
      */
-    public function test_item_types() {
+    public function test_item_types(): void {
         $this->resetAfterTest(true);
 
         $course1 = $this->getDataGenerator()->create_course();
@@ -976,7 +976,7 @@ class lib_test extends \advanced_testcase {
      *
      * @covers ::get_gradable_users
      */
-    public function test_get_gradable_users() {
+    public function test_get_gradable_users(): void {
         global $DB;
 
         $this->setAdminUser();

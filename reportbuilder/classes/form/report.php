@@ -25,7 +25,9 @@ use moodle_url;
 use core_form\dynamic_form;
 use core_reportbuilder\datasource;
 use core_reportbuilder\manager;
+use core_reportbuilder\customfield\report_handler;
 use core_reportbuilder\local\helpers\report as reporthelper;
+use core_tag_tag;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -73,7 +75,7 @@ class report extends dynamic_form {
     /**
      * Ensure current user is able to use this form
      *
-     * A {@see \core_reportbuilder\report_access_exception} will be thrown if they can't
+     * A {@see \core_reportbuilder\exception\report_access_exception} will be thrown if they can't
      */
     protected function check_access_for_dynamic_submission(): void {
         $report = $this->get_custom_report();
@@ -90,6 +92,8 @@ class report extends dynamic_form {
      */
     public function definition() {
         $mform = $this->_form;
+
+        $mform->addElement('header', 'general', get_string('general', 'form'));
 
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
@@ -114,6 +118,14 @@ class report extends dynamic_form {
 
         $mform->addElement('advcheckbox', 'uniquerows', get_string('uniquerows', 'core_reportbuilder'));
         $mform->addHelpButton('uniquerows', 'uniquerows', 'core_reportbuilder');
+
+        $mform->addElement('tags', 'tags', get_string('tags'), [
+            'component' => 'core_reportbuilder', 'itemtype' => 'reportbuilder_report',
+        ]);
+
+        // Add custom fields to the form.
+        $reportid = empty($this->_customdata['id']) ? 0 : $this->_customdata['id'];
+        report_handler::create()->instance_form_definition($mform, $reportid);
     }
 
     /**
@@ -137,8 +149,11 @@ class report extends dynamic_form {
      * Load in existing data as form defaults
      */
     public function set_data_for_dynamic_submission(): void {
-        if ($report = $this->get_custom_report()) {
-            $this->set_data($report->get_report_persistent()->to_record());
+        if ($persistent = $this->get_custom_report()?->get_report_persistent()) {
+            $tags = core_tag_tag::get_item_tags_array('core_reportbuilder', 'reportbuilder_report', $persistent->get('id'));
+            $data = (object) array_merge((array) $persistent->to_record(), ['tags' => $tags]);
+            report_handler::create()->instance_form_before_set_data($data);
+            $this->set_data($data);
         }
     }
 

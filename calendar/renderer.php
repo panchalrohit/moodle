@@ -1,5 +1,4 @@
 <?php
-
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -51,63 +50,10 @@ class core_calendar_renderer extends plugin_renderer_base {
     }
 
     /**
-     * Produces the content for the three months block (pretend block)
-     *
-     * This includes the previous month, the current month, and the next month
-     *
      * @deprecated since 4.0 MDL-72810.
-     * @todo MDL-73117 This will be deleted in Moodle 4.4.
-     *
-     * @param calendar_information $calendar
-     * @return string
      */
-    public function fake_block_threemonths(calendar_information $calendar) {
-        debugging('This method is no longer used as the three month calendar block has been removed', DEBUG_DEVELOPER);
-
-        // Get the calendar type we are using.
-        $calendartype = \core_calendar\type_factory::get_calendar_instance();
-        $time = $calendartype->timestamp_to_date_array($calendar->time);
-
-        $current = $calendar->time;
-        $prevmonthyear = $calendartype->get_prev_month($time['year'], $time['mon']);
-        $prev = $calendartype->convert_to_timestamp(
-                $prevmonthyear[1],
-                $prevmonthyear[0],
-                1
-            );
-        $nextmonthyear = $calendartype->get_next_month($time['year'], $time['mon']);
-        $next = $calendartype->convert_to_timestamp(
-                $nextmonthyear[1],
-                $nextmonthyear[0],
-                1
-            );
-
-        $content = '';
-
-        // Previous.
-        $calendar->set_time($prev);
-        list($previousmonth, ) = calendar_get_view($calendar, 'minithree', false, true);
-
-        // Current month.
-        $calendar->set_time($current);
-        list($currentmonth, ) = calendar_get_view($calendar, 'minithree', false, true);
-
-        // Next month.
-        $calendar->set_time($next);
-        list($nextmonth, ) = calendar_get_view($calendar, 'minithree', false, true);
-
-        // Reset the time back.
-        $calendar->set_time($current);
-
-        $data = (object) [
-            'previousmonth' => $previousmonth,
-            'currentmonth' => $currentmonth,
-            'nextmonth' => $nextmonth,
-        ];
-
-        $template = 'core_calendar/calendar_threemonth';
-        $content .= $this->render_from_template($template, $data);
-        return $content;
+    public function fake_block_threemonths() {
+        throw new coding_exception(__FUNCTION__ . '() has been removed.');
     }
 
     /**
@@ -138,108 +84,16 @@ class core_calendar_renderer extends plugin_renderer_base {
     }
 
     /**
-     * Displays an event
-     *
-     * @deprecated since 3.9
-     *
-     * @param calendar_event $event
-     * @param bool $showactions
-     * @return string
+     * @deprecated 3.9
      */
-    public function event(calendar_event $event, $showactions=true) {
-        global $CFG;
-        debugging('This function is no longer used', DEBUG_DEVELOPER);
-
-        $event = calendar_add_event_metadata($event);
-        $context = $event->context;
-        $output = '';
-
-        $output .= $this->output->box_start('card-header clearfix');
-        if (calendar_edit_event_allowed($event) && $showactions) {
-            if (calendar_delete_event_allowed($event)) {
-                $editlink = new moodle_url(CALENDAR_URL.'event.php', array('action' => 'edit', 'id' => $event->id));
-                $deletelink = new moodle_url(CALENDAR_URL.'delete.php', array('id' => $event->id));
-                if (!empty($event->calendarcourseid)) {
-                    $editlink->param('course', $event->calendarcourseid);
-                    $deletelink->param('course', $event->calendarcourseid);
-                }
-            } else {
-                $params = array('update' => $event->cmid, 'return' => true, 'sesskey' => sesskey());
-                $editlink = new moodle_url('/course/mod.php', $params);
-                $deletelink = null;
-            }
-
-            $commands  = html_writer::start_tag('div', array('class' => 'commands float-sm-right'));
-            $commands .= html_writer::start_tag('a', array('href' => $editlink));
-            $str = get_string('tt_editevent', 'calendar');
-            $commands .= $this->output->pix_icon('t/edit', $str);
-            $commands .= html_writer::end_tag('a');
-            if ($deletelink != null) {
-                $commands .= html_writer::start_tag('a', array('href' => $deletelink));
-                $str = get_string('tt_deleteevent', 'calendar');
-                $commands .= $this->output->pix_icon('t/delete', $str);
-                $commands .= html_writer::end_tag('a');
-            }
-            $commands .= html_writer::end_tag('div');
-            $output .= $commands;
-        }
-        if (!empty($event->icon)) {
-            $output .= $event->icon;
-        } else {
-            $output .= $this->output->spacer(array('height' => 16, 'width' => 16));
-        }
-
-        if (!empty($event->referer)) {
-            $output .= $this->output->heading($event->referer, 3, array('class' => 'referer'));
-        } else {
-            $output .= $this->output->heading(
-                format_string($event->name, false, array('context' => $context)),
-                3,
-                array('class' => 'name d-inline-block')
-            );
-        }
-        // Show subscription source if needed.
-        if (!empty($event->subscription) && $CFG->calendar_showicalsource) {
-            if (!empty($event->subscription->url)) {
-                $source = html_writer::link($event->subscription->url,
-                        get_string('subscriptionsource', 'calendar', $event->subscription->name));
-            } else {
-                // File based ical.
-                $source = get_string('subscriptionsource', 'calendar', $event->subscription->name);
-            }
-            $output .= html_writer::tag('div', $source, array('class' => 'subscription'));
-        }
-        if (!empty($event->courselink)) {
-            $output .= html_writer::tag('div', $event->courselink);
-        }
-        if (!empty($event->time)) {
-            $output .= html_writer::tag('span', $event->time, array('class' => 'date float-sm-right mr-1'));
-        } else {
-            $attrs = array('class' => 'date float-sm-right mr-1');
-            $output .= html_writer::tag('span', calendar_time_representation($event->timestart), $attrs);
-        }
-
-        if (!empty($event->actionurl)) {
-            $actionlink = html_writer::link(new moodle_url($event->actionurl), $event->actionname);
-            $output .= html_writer::tag('div', $actionlink, ['class' => 'action']);
-        }
-
-        $output .= $this->output->box_end();
-        $eventdetailshtml = '';
-        $eventdetailsclasses = '';
-
-        $eventdetailshtml .= format_text($event->description, $event->format, array('context' => $context));
-        $eventdetailsclasses .= 'description card-block';
-        if (isset($event->cssclass)) {
-            $eventdetailsclasses .= ' '.$event->cssclass;
-        }
-
-        if (!empty($eventdetailshtml)) {
-            $output .= html_writer::tag('div', $eventdetailshtml, array('class' => $eventdetailsclasses));
-        }
-
-        $eventhtml = html_writer::tag('div', $output, array('class' => 'card'));
-        return html_writer::tag('div', $eventhtml, array('class' => 'event', 'id' => 'event_' . $event->id));
+    #[\core\attribute\deprecated(
+        replacement: 'event no longer used',
+        since: '3.9',
+        mdl: 'MDL-58866',
+        final: true,
+    )]
+    public function event() {
+        \core\deprecation::emit_deprecation_if_present(__FUNCTION__);
     }
 
     /**
@@ -251,7 +105,7 @@ class core_calendar_renderer extends plugin_renderer_base {
      * @param int|null $calendarinstanceid The instance ID of the calendar we're generating this course filter for.
      * @return string
      */
-    public function course_filter_selector(moodle_url $returnurl, $label = null, $courseid = null, int $calendarinstanceid = null) {
+    public function course_filter_selector(moodle_url $returnurl, $label = null, $courseid = null, ?int $calendarinstanceid = null) {
         global $CFG, $DB;
 
         if (!isloggedin() or isguestuser()) {
@@ -259,7 +113,7 @@ class core_calendar_renderer extends plugin_renderer_base {
         }
 
         $contextrecords = [];
-        $courses = calendar_get_default_courses($courseid, 'id, shortname');
+        $courses = calendar_get_default_courses($courseid, 'id, fullname');
 
         if (!empty($courses) && count($courses) > CONTEXT_CACHE_MAX_SIZE) {
             // We need to pull the context records from the DB to preload them
@@ -287,8 +141,12 @@ class core_calendar_renderer extends plugin_renderer_base {
             if (isset($contextrecords[$course->id])) {
                 context_helper::preload_from_record($contextrecords[$course->id]);
             }
-            $coursecontext = context_course::instance($course->id);
-            $courseoptions[$course->id] = format_string($course->shortname, true, array('context' => $coursecontext));
+
+            // Limit the displayed course name to prevent the dropdown from getting too wide.
+            $coursename = format_string($course->fullname, true, [
+                'context' => \core\context\course::instance($course->id),
+            ]);
+            $courseoptions[$course->id] = shorten_text($coursename, 50, true);
         }
 
         if ($courseid) {
@@ -304,7 +162,7 @@ class core_calendar_renderer extends plugin_renderer_base {
         $labelattributes = [];
         if (empty($label)) {
             $label = get_string('listofcourses');
-            $labelattributes['class'] = 'sr-only';
+            $labelattributes['class'] = 'visually-hidden';
         }
 
         $filterid = 'calendar-course-filter';
@@ -313,7 +171,7 @@ class core_calendar_renderer extends plugin_renderer_base {
         }
         $select = html_writer::label($label, $filterid, false, $labelattributes);
         $select .= html_writer::select($courseoptions, 'course', $selected, false,
-                ['class' => 'cal_courses_flt ml-1 mr-auto', 'id' => $filterid]);
+                ['class' => 'cal_courses_flt ms-1 me-auto me-2 mb-2', 'id' => $filterid]);
 
         return $select;
     }
@@ -326,14 +184,14 @@ class core_calendar_renderer extends plugin_renderer_base {
     public function render_subscriptions_header(): string {
         $importcalendarbutton = new single_button(new moodle_url('/calendar/import.php', calendar_get_export_import_link_params()),
                 get_string('importcalendar', 'calendar'), 'get', single_button::BUTTON_PRIMARY);
-        $importcalendarbutton->class .= ' float-sm-right float-right';
+        $importcalendarbutton->class .= ' float-sm-end float-end';
         $exportcalendarbutton = new single_button(new moodle_url('/calendar/export.php', calendar_get_export_import_link_params()),
                 get_string('exportcalendar', 'calendar'), 'get', single_button::BUTTON_PRIMARY);
-        $exportcalendarbutton->class .= ' float-sm-right float-right';
+        $exportcalendarbutton->class .= ' float-sm-end float-end';
         $output = $this->output->heading(get_string('managesubscriptions', 'calendar'));
         $output .= html_writer::start_div('header d-flex flex-wrap mt-5');
         $headerattr = [
-            'class' => 'mr-auto',
+            'class' => 'me-auto',
             'aria-describedby' => 'subscription_details_table',
         ];
         $output .= html_writer::tag('h3', get_string('yoursubscriptions', 'calendar'), $headerattr);
@@ -351,9 +209,8 @@ class core_calendar_renderer extends plugin_renderer_base {
      */
     public function render_no_calendar_subscriptions(): string {
         $output = html_writer::start_div('mt-5');
-        $importlink = html_writer::link((new moodle_url('/calendar/import.php', calendar_get_export_import_link_params()))->out(),
-                get_string('importcalendarexternal', 'calendar'));
-        $output .= get_string('nocalendarsubscriptions', 'calendar', $importlink);
+        $importlink = (new moodle_url('/calendar/import.php', calendar_get_export_import_link_params()))->out();
+        $output .= get_string('nocalendarsubscriptionsimportexternal', 'core_calendar', $importlink);
         $output .= html_writer::end_div();
 
         return $output;
@@ -380,7 +237,8 @@ class core_calendar_renderer extends plugin_renderer_base {
         $table->id = 'subscription_details_table';
 
         if (empty($subscriptions)) {
-            $cell = new html_table_cell(get_string('nocalendarsubscriptions', 'calendar'));
+            $importlink = (new moodle_url('/calendar/import.php', calendar_get_export_import_link_params()))->out();
+            $cell = new html_table_cell(get_string('nocalendarsubscriptionsimportexternal', 'core_calendar', $importlink));
             $cell->colspan = 5;
             $table->data[] = new html_table_row(array($cell));
         }
@@ -444,7 +302,7 @@ class core_calendar_renderer extends plugin_renderer_base {
      * @return string
      */
     protected function subscription_action_links(): string {
-        $html = html_writer::start_tag('div', array('class' => 'btn-group float-left'));
+        $html = html_writer::start_tag('div', array('class' => 'btn-group float-start'));
         $html .= html_writer::span(html_writer::link('#', get_string('delete'),
             ['data-action' => 'delete-subscription']), '');
         $html .= html_writer::end_tag('div');

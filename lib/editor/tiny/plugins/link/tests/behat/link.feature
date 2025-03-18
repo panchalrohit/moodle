@@ -1,16 +1,13 @@
-@editor @editor_tiny @tiny_link @_file_upload
+@editor @editor_tiny @tiny_link
 Feature: Add links to TinyMCE
   To write rich text - I need to add links.
 
   @javascript
   Scenario: Insert a link
-    Given the following "blocks" exist:
-      | blockname     | contextlevel | reference | pagetypepattern | defaultregion |
-      | private_files | System       | 1         | my-index        | side-post     |
+    Given the following "user private file" exists:
+      | user     | admin                                                |
+      | filepath | lib/editor/tiny/tests/behat/fixtures/moodle-logo.png |
     And I log in as "admin"
-    And I follow "Manage private files..."
-    And I upload "lib/editor/tiny/tests/behat/fixtures/moodle-logo.png" file to "Files" filemanager
-    And I click on "Save changes" "button"
     And I open my profile in edit mode
     And I set the field "Description" to "Super cool"
     When I select the "p" element in position "0" of the "Description" TinyMCE editor
@@ -100,18 +97,18 @@ Feature: Add links to TinyMCE
 
   @javascript
   Scenario: Insert a link for an image using TinyMCE editor
-    Given I log in as "admin"
-    And I follow "Private files" in the user menu
-    And I upload "lib/editor/tiny/tests/behat/fixtures/moodle-logo.png" file to "Files" filemanager
-    And I click on "Save changes" "button"
+    Given the following "user private file" exists:
+      | user     | admin                                                |
+      | filepath | lib/editor/tiny/tests/behat/fixtures/moodle-logo.png |
+    And I log in as "admin"
     And I open my profile in edit mode
     And I click on the "Image" button for the "Description" TinyMCE editor
-    And I click on "Browse repositories..." "button" in the "Image properties" "dialogue"
+    And I click on "Browse repositories" "button" in the "Insert image" "dialogue"
     And I select "Private files" repository in file picker
     And I click on "moodle-logo.png" "link"
     And I click on "Select this file" "button"
-    And I set the field "Describe this image for someone who cannot see it" to "It's the Moodle"
-    And I click on "Save image" "button" in the "Image properties" "dialogue"
+    And I set the field "How would you describe this image to someone who can't see it?" to "It's the Moodle"
+    And I click on "Save" "button" in the "Image details" "dialogue"
     And I select the "img" element in position "0" of the "Description" TinyMCE editor
     And I click on the "Link" button for the "Description" TinyMCE editor
     And I set the field "Enter a URL" to "https://moodle.org/"
@@ -132,8 +129,8 @@ Feature: Add links to TinyMCE
     And I click on "Edit profile" "link" in the "region-main" "region"
     And I select the "img" element in position "0" of the "Description" TinyMCE editor
     And I click on the "Image" button for the "Description" TinyMCE editor
-    And the field "Describe this image for someone who cannot see it" matches value "It's the Moodle"
-    And I click on "Close" "button" in the "Image properties" "dialogue"
+    And the field "How would you describe this image to someone who can't see it?" matches value "It's the Moodle"
+    And I click on "Close" "button" in the "Image details" "dialogue"
     And I click on the "Link" button for the "Description" TinyMCE editor
     And the field "Text to display" matches value "Moodle - Open-source learning platform"
     And the field "Enter a URL" matches value "https://moodle.org/"
@@ -156,3 +153,39 @@ Feature: Add links to TinyMCE
     And I select the "a" element in position "0" of the "Description" TinyMCE editor
     When I click on the "Unlink" button for the "Description" TinyMCE editor
     Then the field "Description" matches value "<p>Moodle - Open-source learning platform</p>"
+
+  @javascript
+  Scenario: Permissions can be configured to control access to link
+    Given the following "users" exist:
+      | username | firstname | lastname | email                |
+      | teacher1 | Teacher   | 1        | teacher1@example.com |
+      | teacher2 | Teacher   | 2        | teacher2@example.com |
+    And the following "courses" exist:
+      | fullname | shortname | format |
+      | Course 1 | C1        | topics |
+    And the following "roles" exist:
+      | name           | shortname | description         | archetype      |
+      | Custom teacher | custom1   | Limited permissions | editingteacher |
+    And the following "course enrolments" exist:
+      | user     | course | role           |
+      | teacher1 | C1     | editingteacher |
+      | teacher2 | C1     | custom1        |
+    And the following "activity" exists:
+      | activity | assign          |
+      | course   | C1              |
+      | name     | Test assignment |
+    And the following "permission overrides" exist:
+      | capability    | permission | role    | contextlevel | reference |
+      | tiny/link:use | Prohibit   | custom1 | Course       | C1        |
+    # Check plugin access as a role with prohibited permissions.
+    And I log in as "teacher2"
+    And I am on the "Test assignment" Activity page
+    And I navigate to "Settings" in current page administration
+    When I click on the "Insert" menu item for the "Activity instructions" TinyMCE editor
+    Then I should not see "Link"
+    # Check plugin access as a role with allowed permissions.
+    And I log in as "teacher1"
+    And I am on the "Test assignment" Activity page
+    And I navigate to "Settings" in current page administration
+    And I click on the "Insert" menu item for the "Activity instructions" TinyMCE editor
+    And I should see "Link"

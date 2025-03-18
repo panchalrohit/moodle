@@ -21,6 +21,7 @@ use cache;
 use comment;
 use context;
 use context_course;
+use context_module;
 use core_question_generator;
 use stdClass;
 
@@ -32,7 +33,7 @@ use stdClass;
  * @author     Safat Shahin <safatshahin@catalyst-au.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class comment_created_deleted_test extends advanced_testcase {
+final class comment_created_deleted_test extends advanced_testcase {
 
     /** @var stdClass Keeps course object */
     private $course;
@@ -52,6 +53,7 @@ class comment_created_deleted_test extends advanced_testcase {
     public function setUp(): void {
         global $CFG;
         require_once($CFG->dirroot . '/comment/lib.php');
+        parent::setUp();
 
         $this->resetAfterTest();
         $this->setAdminUser();
@@ -62,11 +64,12 @@ class comment_created_deleted_test extends advanced_testcase {
 
         // Create a course.
         $this->course = $generator->create_course();
-        $this->context = context_course::instance($this->course->id);
+        $qbank = self::getDataGenerator()->create_module('qbank', ['course' => $this->course->id]);
+        $this->context = context_module::instance($qbank->cmid);
 
         // Create a question in the default category.
         $contexts = new \core_question\local\bank\question_edit_contexts($this->context);
-        $cat = question_make_default_categories($contexts->all());
+        $cat = question_get_default_category($contexts->lowest()->id, true);
         $this->questiondata = $questiongenerator->create_question('numerical', null,
                 ['name' => 'Example question', 'category' => $cat->id]);
 
@@ -91,7 +94,7 @@ class comment_created_deleted_test extends advanced_testcase {
     /**
      * Test comment_created event.
      */
-    public function test_comment_created() {
+    public function test_comment_created(): void {
         // Triggering and capturing the event.
         $sink = $this->redirectEvents();
         $this->comment->add('New comment');
@@ -109,7 +112,7 @@ class comment_created_deleted_test extends advanced_testcase {
     /**
      * Test comment_created event.
      */
-    public function test_comment_deleted() {
+    public function test_comment_deleted(): void {
         // Triggering and capturing the event.
         $newcomment = $this->comment->add('New comment to delete');
         $sink = $this->redirectEvents();

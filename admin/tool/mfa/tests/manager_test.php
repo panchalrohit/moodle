@@ -15,10 +15,6 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace tool_mfa;
-use tool_mfa\tool_mfa_trait;
-
-defined('MOODLE_INTERNAL') || die();
-require_once(__DIR__ . '/tool_mfa_trait.php');
 
 /**
  * Tests for MFA manager class.
@@ -28,9 +24,9 @@ require_once(__DIR__ . '/tool_mfa_trait.php');
  * @copyright   Catalyst IT
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class manager_test extends \advanced_testcase {
+final class manager_test extends \advanced_testcase {
 
-    use tool_mfa_trait;
+    use \tool_mfa\tests\mfa_settings_trait;
 
     /**
      * Tests getting the factor total weight
@@ -38,7 +34,7 @@ class manager_test extends \advanced_testcase {
      * @covers ::get_total_weight
      * @covers ::setup_user_factor
      */
-    public function test_get_total_weight() {
+    public function test_get_total_weight(): void {
         $this->resetAfterTest(true);
 
         // Create and login a user.
@@ -83,12 +79,15 @@ class manager_test extends \advanced_testcase {
      *
      * @covers ::get_status
      */
-    public function test_get_status() {
+    public function test_get_status(): void {
         $this->resetAfterTest(true);
 
         // Create and login a user.
         $user = $this->getDataGenerator()->create_user();
         $this->setUser($user);
+
+        // Disable the email factor (enabled by default).
+        set_config('enabled', 0, 'factor_email');
 
         // Check for fail status with no factors.
         $this->assertEquals(\tool_mfa\plugininfo\factor::STATE_FAIL, \tool_mfa\manager::get_status());
@@ -121,7 +120,7 @@ class manager_test extends \advanced_testcase {
      *
      * @covers ::passed_enough_factors
      */
-    public function test_passed_enough_factors() {
+    public function test_passed_enough_factors(): void {
         $this->resetAfterTest(true);
 
         // Create and login a user.
@@ -157,7 +156,7 @@ class manager_test extends \advanced_testcase {
      *
      * @return  array
      */
-    public static function should_redirect_urls_provider() {
+    public static function should_redirect_urls_provider(): array {
         $badurl1 = new \moodle_url('/');
         $badparam1 = $badurl1->out();
         $badurl2 = new \moodle_url('admin/tool/mfa/auth.php');
@@ -186,7 +185,7 @@ class manager_test extends \advanced_testcase {
      * @param array|null $params
      * @dataProvider should_redirect_urls_provider
      */
-    public function test_should_require_mfa_urls($urlstring, $webroot, $status, $params = null) {
+    public function test_should_require_mfa_urls($urlstring, $webroot, $status, $params = null): void {
         $this->resetAfterTest(true);
         global $CFG;
         $user = $this->getDataGenerator()->create_user();
@@ -201,7 +200,7 @@ class manager_test extends \advanced_testcase {
      *
      * @covers ::should_require_mfa
      */
-    public function test_should_require_mfa_checks() {
+    public function test_should_require_mfa_checks(): void {
         // Setup test and user.
         global $CFG;
         $this->resetAfterTest(true);
@@ -273,7 +272,7 @@ class manager_test extends \advanced_testcase {
      *
      * @covers ::should_require_mfa
      */
-    public function test_should_require_mfa_redirection_loop() {
+    public function test_should_require_mfa_redirection_loop(): void {
         // Setup test and user.
         global $CFG, $SESSION;
         $CFG->wwwroot = 'http://phpunit.test';
@@ -330,7 +329,7 @@ class manager_test extends \advanced_testcase {
      * @covers ::possible_factor_setup
      * @covers ::setup_user_factor
      */
-    public function test_possible_factor_setup() {
+    public function test_possible_factor_setup(): void {
         // Setup test and user.
         $this->resetAfterTest(true);
         $user = $this->getDataGenerator()->create_user();
@@ -365,7 +364,7 @@ class manager_test extends \advanced_testcase {
      *
      * @covers ::is_ready
      */
-    public function test_is_ready() {
+    public function test_is_ready(): void {
         // Setup test and user.
         global $CFG;
         $this->resetAfterTest(true);
@@ -373,6 +372,8 @@ class manager_test extends \advanced_testcase {
         $this->setUser($user);
         set_config('enabled', 1, 'factor_nosetup');
         set_config('enabled', 1, 'tool_mfa');
+        // Disable the email factor (enabled by default).
+        set_config('enabled', 0, 'factor_email');
 
         // Capability Check.
         $this->assertTrue(\tool_mfa\manager::is_ready());
@@ -406,7 +407,7 @@ class manager_test extends \advanced_testcase {
      * @covers ::mfa_config_hook_test
      * @covers ::mfa_login_hook_test
      */
-    public function test_core_hooks() {
+    public function test_core_hooks(): void {
         // Setup test and user.
         global $CFG, $SESSION;
         $this->resetAfterTest(true);
@@ -425,7 +426,7 @@ class manager_test extends \advanced_testcase {
      *
      * @covers ::should_require_mfa
      */
-    public function test_circular_redirect_auth() {
+    public function test_circular_redirect_auth(): void {
         // Setup test and user.
         $this->resetAfterTest(true);
         $user = $this->getDataGenerator()->create_user();

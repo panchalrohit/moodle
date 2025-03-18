@@ -15,7 +15,6 @@
 
 import ajax from 'core/ajax';
 import {getString} from "core/str";
-import log from 'core/log';
 import SRLogger from "core/local/reactive/srlogger";
 
 /**
@@ -65,6 +64,31 @@ export default class {
         }])[0];
         return JSON.parse(ajaxresult);
     }
+
+    /**
+     * Private method to call core_courseformat_create_module webservice.
+     *
+     * @method _callEditWebservice
+     * @param {number} courseId
+     * @param {string} modName module name
+     * @param {number} targetSectionNum target section number
+     * @param {number} targetCmId optional target cm id
+     */
+        async _callAddModuleWebservice(courseId, modName, targetSectionNum, targetCmId) {
+            const args = {
+                courseid: courseId,
+                modname: modName,
+                targetsectionnum: targetSectionNum,
+            };
+            if (targetCmId) {
+                args.targetcmid = targetCmId;
+            }
+            let ajaxresult = await ajax.call([{
+                methodname: 'core_courseformat_create_module',
+                args,
+            }])[0];
+            return JSON.parse(ajaxresult);
+        }
 
     /**
      * Execute a basic section state action.
@@ -309,28 +333,6 @@ export default class {
     }
 
     /**
-     * Move course modules to specific course location.
-     *
-     * @deprecated since Moodle 4.4 MDL-77038.
-     * @todo MDL-80116 This will be deleted in Moodle 4.8.
-     * @param {StateManager} stateManager the current state manager
-     * @param {array} sectionIds the list of section ids to move
-     * @param {number} targetSectionId the target section id
-     */
-    async sectionMove(stateManager, sectionIds, targetSectionId) {
-        log.debug('sectionMove() is deprecated. Use sectionMoveAfter() instead');
-        if (!targetSectionId) {
-            throw new Error(`Mutation sectionMove requires targetSectionId`);
-        }
-        const course = stateManager.get('course');
-        this.sectionLock(stateManager, sectionIds, true);
-        const updates = await this._callEditWebservice('section_move', course.id, sectionIds, targetSectionId);
-        this.bulkReset(stateManager);
-        stateManager.processUpdates(updates);
-        this.sectionLock(stateManager, sectionIds, false);
-    }
-
-    /**
      * Move course modules after a specific course location.
      *
      * @param {StateManager} stateManager the current state manager
@@ -392,6 +394,29 @@ export default class {
     }
 
     /**
+     * Add a new module to a specific course section.
+     *
+     * @param {StateManager} stateManager the current state manager
+     * @param {string} modName the modulename to add
+     * @param {number} targetSectionNum the target section number
+     * @param {number} targetCmId optional the target cm id
+     */
+    async addModule(stateManager, modName, targetSectionNum, targetCmId) {
+        if (!modName) {
+            throw new Error(`Mutation addModule requires moduleName`);
+        }
+        if (!targetSectionNum) {
+            throw new Error(`Mutation addModule requires targetSectionNum`);
+        }
+        if (!targetCmId) {
+            targetCmId = 0;
+        }
+        const course = stateManager.get('course');
+        const updates = await this._callAddModuleWebservice(course.id, modName, targetSectionNum, targetCmId);
+        stateManager.processUpdates(updates);
+    }
+
+    /**
      * Mark or unmark course modules as dragging.
      *
      * @param {StateManager} stateManager the current state manager
@@ -423,8 +448,16 @@ export default class {
      * @param {bool} complete the new completion value
      */
     cmCompletion(stateManager, cmIds, complete) {
-        const newValue = (complete) ? 1 : 0;
-        this._setElementsValue(stateManager, 'cm', cmIds, 'completionstate', newValue);
+        const newState = (complete) ? 1 : 0;
+        stateManager.setReadOnly(false);
+        cmIds.forEach((id) => {
+            const element = stateManager.get('cm', id);
+            if (element) {
+                element.isoverallcomplete = complete;
+                element.completionstate = newState;
+            }
+        });
+        stateManager.setReadOnly(true);
     }
 
     /**
@@ -531,9 +564,12 @@ export default class {
                 return;
             }
         }
+        const course = stateManager.get('course');
+        if (course.pageItem && course.pageItem.type === type && course.pageItem.id === id) {
+            return;
+        }
         stateManager.setReadOnly(false);
         // Remove the current page item.
-        const course = stateManager.get('course');
         course.pageItem = null;
         // Save the new page item.
         if (newPageItem) {
@@ -572,12 +608,16 @@ export default class {
      * @param {boolean} collapsed the new collapsed value
      */
     async sectionIndexCollapsed(stateManager, sectionIds, collapsed) {
-        const collapsedIds = this._updateStateSectionPreference(stateManager, 'indexcollapsed', sectionIds, collapsed);
-        if (!collapsedIds) {
+        const affectedSections = this._updateStateSectionPreference(stateManager, 'indexcollapsed', sectionIds, collapsed);
+        if (!affectedSections) {
             return;
         }
         const course = stateManager.get('course');
-        await this._callEditWebservice('section_index_collapsed', course.id, collapsedIds);
+        let actionName = 'section_index_collapsed';
+        if (!collapsed) {
+            actionName = 'section_index_expanded';
+        }
+        await this._callEditWebservice(actionName, course.id, affectedSections);
     }
 
     /**
@@ -599,12 +639,16 @@ export default class {
      * @param {boolean} collapsed the new collapsed value
      */
     async sectionContentCollapsed(stateManager, sectionIds, collapsed) {
-        const collapsedIds = this._updateStateSectionPreference(stateManager, 'contentcollapsed', sectionIds, collapsed);
-        if (!collapsedIds) {
+        const affectedSections = this._updateStateSectionPreference(stateManager, 'contentcollapsed', sectionIds, collapsed);
+        if (!affectedSections) {
             return;
         }
         const course = stateManager.get('course');
-        await this._callEditWebservice('section_content_collapsed', course.id, collapsedIds);
+        let actionName = 'section_content_collapsed';
+        if (!collapsed) {
+            actionName = 'section_content_expanded';
+        }
+        await this._callEditWebservice(actionName, course.id, affectedSections);
     }
 
     /**
@@ -618,32 +662,22 @@ export default class {
      */
     _updateStateSectionPreference(stateManager, preferenceName, sectionIds, preferenceValue) {
         stateManager.setReadOnly(false);
-        const affectedSections = new Set();
+        const affectedSections = [];
         // Check if we need to update preferences.
         sectionIds.forEach(sectionId => {
             const section = stateManager.get('section', sectionId);
             if (section === undefined) {
+                stateManager.setReadOnly(true);
                 return null;
             }
             const newValue = preferenceValue ?? section[preferenceName];
             if (section[preferenceName] != newValue) {
                 section[preferenceName] = newValue;
-                affectedSections.add(section.id);
+                affectedSections.push(section.id);
             }
         });
         stateManager.setReadOnly(true);
-        if (affectedSections.size == 0) {
-            return null;
-        }
-        // Get all collapsed section ids.
-        const collapsedSectionIds = [];
-        const state = stateManager.state;
-        state.section.forEach(section => {
-            if (section[preferenceName]) {
-                collapsedSectionIds.push(section.id);
-            }
-        });
-        return collapsedSectionIds;
+        return affectedSections;
     }
 
     /**

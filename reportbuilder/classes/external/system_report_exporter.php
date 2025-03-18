@@ -67,6 +67,11 @@ class system_report_exporter extends persistent_exporter {
         return [
             'table' => ['type' => PARAM_RAW],
             'parameters' => ['type' => PARAM_RAW],
+            'button' => [
+                'type' => report_action_exporter::read_properties_definition(),
+                'optional' => true,
+            ],
+            'infocontainer' => ['type' => PARAM_RAW],
             'filterspresent' => ['type' => PARAM_BOOL],
             'filtersapplied' => ['type' => PARAM_INT],
             'filtersform' => ['type' => PARAM_RAW],
@@ -104,12 +109,19 @@ class system_report_exporter extends persistent_exporter {
         $filterset->add_filter(new integer_filter('reportid', null, [$reportid]));
         $filterset->add_filter(new string_filter('parameters', null, [$parameters]));
 
-        $table = system_report_table::create($reportid, (array) json_decode($parameters, true));
+        $params = (array) json_decode($parameters, true);
+        $table = system_report_table::create($reportid, $params);
         $table->set_filterset($filterset);
+
+        // Export global report action.
+        $optionalvalues = [];
+        if ($reportaction = $source->get_report_action()) {
+            $optionalvalues['button'] = $reportaction->export_for_template($output);
+        }
 
         // Generate filters form if report uses the default form, and contains any filters.
         $filterspresent = $source->get_filter_form_default() && !empty($source->get_active_filters());
-        if ($filterspresent) {
+        if ($filterspresent && empty($params['download'])) {
             $filtersform = new filter(null, null, 'post', '', [], true, [
                 'reportid' => $reportid,
                 'parameters' => $parameters,
@@ -130,11 +142,12 @@ class system_report_exporter extends persistent_exporter {
         return [
             'table' => $output->render($table),
             'parameters' => $parameters,
+            'infocontainer' => $source->get_report_info_container(),
             'filterspresent' => $filterspresent,
             'filtersapplied' => $source->get_applied_filter_count(),
             'filtersform' => $filterspresent ? $filtersform->render() : '',
             'attributes' => $attributes,
             'classes' => $classes ?? '',
-        ];
+        ] + $optionalvalues;
     }
 }

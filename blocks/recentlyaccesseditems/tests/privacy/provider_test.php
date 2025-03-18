@@ -38,12 +38,12 @@ use core_privacy\local\request\approved_userlist;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @since      Moodle 3.6
  */
-class provider_test extends \core_privacy\tests\provider_testcase {
+final class provider_test extends \core_privacy\tests\provider_testcase {
 
     /**
      * Test getting the context for the user ID related to this plugin.
      */
-    public function test_get_contexts_for_userid() {
+    public function test_get_contexts_for_userid(): void {
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();
 
@@ -57,7 +57,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $generator->enrol_user($student->id, $course->id, 'student');
         $generator->enrol_user($teacher->id, $course->id, 'teacher');
         $forum = $generator->create_module('forum', ['course' => $course]);
-        $chat = $generator->create_module('chat', ['course' => $course]);
+        $assign = $generator->create_module('assign', ['course' => $course]);
 
         // Check nothing is found before block is populated.
         $contextlist1 = provider::get_contexts_for_userid($student->id);
@@ -72,8 +72,8 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $event->trigger();
 
         $this->setUser($teacher);
-        $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                    'objectid' => $chat->id]);
+        $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                    'objectid' => $assign->id]);
         $event->trigger();
 
         // Ensure provider only fetches the users's own context.
@@ -89,7 +89,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Test getting users in the context ID related to this plugin.
      */
-    public function test_get_users_in_context() {
+    public function test_get_users_in_context(): void {
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();
         $component = 'block_recentlyaccesseditems';
@@ -104,7 +104,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $generator->enrol_user($student->id, $course->id, 'student');
         $generator->enrol_user($teacher->id, $course->id, 'teacher');
         $forum = $generator->create_module('forum', ['course' => $course]);
-        $chat = $generator->create_module('chat', ['course' => $course]);
+        $assign = $generator->create_module('assign', ['course' => $course]);
 
         // Check nothing is found before block is populated.
         $userlist1 = new \core_privacy\local\request\userlist($studentcontext, $component);
@@ -119,16 +119,16 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $event = \mod_forum\event\course_module_viewed::create(['context' => \context_module::instance($forum->cmid),
                     'objectid' => $forum->id]);
         $event->trigger();
-        $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                    'objectid' => $chat->id]);
+        $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                    'objectid' => $assign->id]);
         $event->trigger();
 
         $this->setUser($teacher);
         $event = \mod_forum\event\course_module_viewed::create(['context' => \context_module::instance($forum->cmid),
                     'objectid' => $forum->id]);
         $event->trigger();
-        $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                    'objectid' => $chat->id]);
+        $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                    'objectid' => $assign->id]);
         $event->trigger();
 
         // Ensure provider only fetches the user whose user context is checked.
@@ -146,7 +146,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Test fetching information about user data stored.
      */
-    public function test_get_metadata() {
+    public function test_get_metadata(): void {
         $collection = new \core_privacy\local\metadata\collection('block_recentlyaccesseditems');
         $newcollection = provider::get_metadata($collection);
         $itemcollection = $newcollection->get_collection();
@@ -168,7 +168,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Test exporting data for an approved contextlist.
      */
-    public function test_export_user_data() {
+    public function test_export_user_data(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -182,15 +182,15 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $course = $generator->create_course();
         $generator->enrol_user($student->id, $course->id, 'student');
         $forum = $generator->create_module('forum', ['course' => $course]);
-        $chat = $generator->create_module('chat', ['course' => $course]);
+        $assign = $generator->create_module('assign', ['course' => $course]);
 
         // Generate some recent activity.
         $this->setUser($student);
         $event = \mod_forum\event\course_module_viewed::create(['context' => \context_module::instance($forum->cmid),
                 'objectid' => $forum->id]);
         $event->trigger();
-        $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                'objectid' => $chat->id]);
+        $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                'objectid' => $assign->id]);
         $event->trigger();
 
         // Confirm data is present.
@@ -221,7 +221,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Test exporting data for an approved contextlist with a deleted course
      */
-    public function test_export_user_data_with_deleted_course() {
+    public function test_export_user_data_with_deleted_course(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -235,15 +235,15 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $course = $generator->create_course();
         $generator->enrol_user($student->id, $course->id, 'student');
         $forum = $generator->create_module('forum', ['course' => $course]);
-        $chat = $generator->create_module('chat', ['course' => $course]);
+        $assign = $generator->create_module('assign', ['course' => $course]);
 
         // Generate some recent activity.
         $this->setUser($student);
         $event = \mod_forum\event\course_module_viewed::create(['context' => \context_module::instance($forum->cmid),
                 'objectid' => $forum->id]);
         $event->trigger();
-        $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                'objectid' => $chat->id]);
+        $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                'objectid' => $assign->id]);
         $event->trigger();
 
         // Confirm data is present.
@@ -268,7 +268,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Test deleting data for all users within an approved contextlist.
      */
-    public function test_delete_data_for_all_users_in_context() {
+    public function test_delete_data_for_all_users_in_context(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -283,7 +283,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $generator->enrol_user($student->id, $course->id, 'student');
         $generator->enrol_user($teacher->id, $course->id, 'teacher');
         $forum = $generator->create_module('forum', ['course' => $course]);
-        $chat = $generator->create_module('chat', ['course' => $course]);
+        $assign = $generator->create_module('assign', ['course' => $course]);
 
         // Generate some recent activity for both users.
         $users = [$student, $teacher];
@@ -292,8 +292,8 @@ class provider_test extends \core_privacy\tests\provider_testcase {
             $event = \mod_forum\event\course_module_viewed::create(['context' => \context_module::instance($forum->cmid),
                         'objectid' => $forum->id]);
             $event->trigger();
-            $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                        'objectid' => $chat->id]);
+            $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                        'objectid' => $assign->id]);
             $event->trigger();
         }
 
@@ -336,7 +336,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Test deleting data within an approved contextlist for a user.
      */
-    public function test_delete_data_for_user() {
+    public function test_delete_data_for_user(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -353,7 +353,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $generator->enrol_user($student->id, $course->id, 'student');
         $generator->enrol_user($teacher->id, $course->id, 'teacher');
         $forum = $generator->create_module('forum', ['course' => $course]);
-        $chat = $generator->create_module('chat', ['course' => $course]);
+        $assign = $generator->create_module('assign', ['course' => $course]);
 
         // Generate some recent activity for both users.
         $users = [$student, $teacher];
@@ -362,8 +362,8 @@ class provider_test extends \core_privacy\tests\provider_testcase {
             $event = \mod_forum\event\course_module_viewed::create(['context' => \context_module::instance($forum->cmid),
                         'objectid' => $forum->id]);
             $event->trigger();
-            $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                        'objectid' => $chat->id]);
+            $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                        'objectid' => $assign->id]);
             $event->trigger();
         }
 
@@ -416,7 +416,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Test deleting data within a context for an approved userlist.
      */
-    public function test_delete_data_for_users() {
+    public function test_delete_data_for_users(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -433,7 +433,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $generator->enrol_user($student->id, $course->id, 'student');
         $generator->enrol_user($teacher->id, $course->id, 'teacher');
         $forum = $generator->create_module('forum', ['course' => $course]);
-        $chat = $generator->create_module('chat', ['course' => $course]);
+        $assign = $generator->create_module('assign', ['course' => $course]);
 
         // Generate some recent activity for all users.
         $users = [$student, $teacher];
@@ -442,8 +442,8 @@ class provider_test extends \core_privacy\tests\provider_testcase {
             $event = \mod_forum\event\course_module_viewed::create(['context' => \context_module::instance($forum->cmid),
                         'objectid' => $forum->id]);
             $event->trigger();
-            $event = \mod_chat\event\course_module_viewed::create(['context' => \context_module::instance($chat->cmid),
-                        'objectid' => $chat->id]);
+            $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($assign->cmid),
+                        'objectid' => $assign->id]);
             $event->trigger();
         }
 

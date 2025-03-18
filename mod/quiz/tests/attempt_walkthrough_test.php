@@ -19,12 +19,7 @@ namespace mod_quiz;
 use moodle_url;
 use question_bank;
 use question_engine;
-
-defined('MOODLE_INTERNAL') || die();
-
-global $CFG;
-require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-require_once($CFG->dirroot . '/mod/quiz/tests/quiz_question_helper_test_trait.php');
+use mod_quiz\tests\question_helper_test_trait;
 
 /**
  * Quiz attempt walk through.
@@ -36,14 +31,22 @@ require_once($CFG->dirroot . '/mod/quiz/tests/quiz_question_helper_test_trait.ph
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \mod_quiz\quiz_attempt
  */
-class attempt_walkthrough_test extends \advanced_testcase {
+final class attempt_walkthrough_test extends \advanced_testcase {
+    use question_helper_test_trait;
 
-    use \quiz_question_helper_test_trait;
+    #[\Override]
+    public static function setUpBeforeClass(): void {
+        global $CFG;
+
+        parent::setUpBeforeClass();
+
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+    }
 
     /**
      * Create a quiz with questions and walk through a quiz attempt.
      */
-    public function test_quiz_attempt_walkthrough() {
+    public function test_quiz_attempt_walkthrough(): void {
         global $SITE;
 
         $this->resetAfterTest(true);
@@ -103,8 +106,8 @@ class attempt_walkthrough_test extends \advanced_testcase {
             3 => [
                 'frog' => 'amphibian',
                 'cat' => 'mammal',
-                'newt' => ''
-            ]
+                'newt' => '',
+            ],
         ];
 
         $attemptobj->process_submitted_actions($timenow, false, $tosubmit);
@@ -115,8 +118,8 @@ class attempt_walkthrough_test extends \advanced_testcase {
             3 => [
                 'frog' => 'amphibian',
                 'cat' => 'mammal',
-                'newt' => 'amphibian'
-            ]
+                'newt' => 'amphibian',
+            ],
         ];
 
         $attemptobj->process_submitted_actions($timenow, false, $tosubmit);
@@ -150,6 +153,64 @@ class attempt_walkthrough_test extends \advanced_testcase {
         $gradebookitem = array_shift($gradebookgrades->items);
         $gradebookgrade = array_shift($gradebookitem->grades);
         $this->assertEquals(100, $gradebookgrade->grade);
+
+        // Update question in quiz.
+        $newsa = $questiongenerator->update_question(
+            $saq,
+            null,
+            ['name' => 'This is the second version of shortanswer']
+        );
+        $newnumbq = $questiongenerator->update_question(
+            $numq,
+            null,
+            ['name' => 'This is the second version of numerical']
+        );
+        $newmatch = $questiongenerator->update_question(
+            $matchq,
+            null,
+            ['name' => 'This is the second version of match']
+        );
+        $newdescription = $questiongenerator->update_question(
+            $description,
+            null,
+            ['name' => 'This is the second version of description']
+        );
+
+        // Update the attempt to use this questions.
+        // Would not normally be done for a non-preview, but this is just a unit test.
+        $attemptobj->update_questions_to_new_version_if_changed();
+
+        // Verify.
+        $this->assertEquals($newsa->id, $attemptobj->get_question_attempt(1)->get_question_id());
+        $this->assertEquals($newnumbq->id, $attemptobj->get_question_attempt(2)->get_question_id());
+        $this->assertEquals($newmatch->id, $attemptobj->get_question_attempt(3)->get_question_id());
+        $this->assertEquals($newdescription->id, $attemptobj->get_question_attempt(4)->get_question_id());
+
+        // Repeat the checks from above.
+        $this->assertEquals(1, $attemptobj->get_attempt_number());
+        $this->assertEquals(3, $attemptobj->get_sum_marks());
+        $this->assertEquals(true, $attemptobj->is_finished());
+        $this->assertEquals($timenow, $attemptobj->get_submitted_date());
+        $this->assertEquals($user1->id, $attemptobj->get_userid());
+        $this->assertTrue($attemptobj->has_response_to_at_least_one_graded_question());
+        $this->assertEquals(0, $attemptobj->get_number_of_unanswered_questions());
+
+        // Re-load quiz attempt data and repeat the verification.
+        $attemptobj = quiz_attempt::create($attempt->id);
+
+        $this->assertEquals($newsa->id, $attemptobj->get_question_attempt(1)->get_question_id());
+        $this->assertEquals($newnumbq->id, $attemptobj->get_question_attempt(2)->get_question_id());
+        $this->assertEquals($newmatch->id, $attemptobj->get_question_attempt(3)->get_question_id());
+        $this->assertEquals($newdescription->id, $attemptobj->get_question_attempt(4)->get_question_id());
+
+        // Repeat the checks from above.
+        $this->assertEquals(1, $attemptobj->get_attempt_number());
+        $this->assertEquals(3, $attemptobj->get_sum_marks());
+        $this->assertEquals(true, $attemptobj->is_finished());
+        $this->assertEquals($timenow, $attemptobj->get_submitted_date());
+        $this->assertEquals($user1->id, $attemptobj->get_userid());
+        $this->assertTrue($attemptobj->has_response_to_at_least_one_graded_question());
+        $this->assertEquals(0, $attemptobj->get_number_of_unanswered_questions());
     }
 
     /**
@@ -171,8 +232,10 @@ class attempt_walkthrough_test extends \advanced_testcase {
         $quizgenerator = $this->getDataGenerator()->get_plugin_generator('mod_quiz');
 
         $quiz = $quizgenerator->create_instance(
-                ['course' => $SITE->id, 'timeclose' => $timeclose,
-                        'overduehandling' => $overduehandling, 'graceperiod' => HOURSECS]);
+            ['course' => $SITE->id, 'timeclose' => $timeclose,
+            'overduehandling' => $overduehandling,
+            'graceperiod' => HOURSECS]
+        );
 
         // Create a question.
         /** @var \core_question_generator $questiongenerator */
@@ -188,7 +251,7 @@ class attempt_walkthrough_test extends \advanced_testcase {
         return $quiz;
     }
 
-    public function test_quiz_attempt_walkthrough_submit_time_recorded_correctly_when_overdue() {
+    public function test_quiz_attempt_walkthrough_submit_time_recorded_correctly_when_overdue(): void {
 
         $quiz = $this->create_quiz_with_one_question();
 
@@ -232,7 +295,7 @@ class attempt_walkthrough_test extends \advanced_testcase {
         $this->assertEquals(0, $attemptobj->get_number_of_unanswered_questions());
     }
 
-    public function test_quiz_attempt_walkthrough_close_time_extended_at_last_minute() {
+    public function test_quiz_attempt_walkthrough_close_time_extended_at_last_minute(): void {
         global $DB;
 
         $quiz = $this->create_quiz_with_one_question();
@@ -271,7 +334,7 @@ class attempt_walkthrough_test extends \advanced_testcase {
     /**
      * Create a quiz with a random as well as other questions and walk through quiz attempts.
      */
-    public function test_quiz_with_random_question_attempt_walkthrough() {
+    public function test_quiz_with_random_question_attempt_walkthrough(): void {
         global $SITE;
 
         $this->resetAfterTest(true);
@@ -376,11 +439,16 @@ class attempt_walkthrough_test extends \advanced_testcase {
         }
     }
 
-
-    public function get_correct_response_for_variants() {
+    /**
+     * Get the correct response for variants.
+     *
+     * @return array
+     */
+    public static function get_correct_response_for_variants(): array {
         return [[1, 9.9], [2, 8.5], [5, 14.2], [10, 6.8, true]];
     }
 
+    /** @var ?\quiz A quiz with variants */
     protected $quizwithvariants = null;
 
     /**
@@ -388,7 +456,7 @@ class attempt_walkthrough_test extends \advanced_testcase {
      *
      * @dataProvider get_correct_response_for_variants
      */
-    public function test_quiz_with_question_with_variants_attempt_walkthrough($variantno, $correctresponse, $done = false) {
+    public function test_quiz_with_question_with_variants_attempt_walkthrough($variantno, $correctresponse, $done = false): void {
         global $SITE;
 
         $this->resetAfterTest($done);
@@ -468,7 +536,7 @@ class attempt_walkthrough_test extends \advanced_testcase {
         $this->assertEquals(100, $gradebookgrade->grade);
     }
 
-    public function test_quiz_attempt_walkthrough_abandoned_attempt_reopened_with_timelimit_override() {
+    public function test_quiz_attempt_walkthrough_abandoned_attempt_reopened_with_timelimit_override(): void {
         global $DB;
 
         $quiz = $this->create_quiz_with_one_question('autoabandon');
@@ -514,8 +582,10 @@ class attempt_walkthrough_test extends \advanced_testcase {
         $this->assertEquals(quiz_attempt::IN_PROGRESS, $attemptobj->get_state());
         $this->assertEquals(0, $attemptobj->get_submitted_date());
         $this->assertEquals($user->id, $attemptobj->get_userid());
-        $this->assertEquals($overriddentimeclose,
-                $attemptobj->get_access_manager($reopentime)->get_end_time($attemptobj->get_attempt()));
+        $this->assertEquals(
+            $overriddentimeclose,
+            $attemptobj->get_access_manager($reopentime)->get_end_time($attemptobj->get_attempt())
+        );
 
         // Verify this was logged correctly.
         $events = $sink->get_events();
@@ -524,11 +594,13 @@ class attempt_walkthrough_test extends \advanced_testcase {
         $reopenedevent = array_shift($events);
         $this->assertInstanceOf('\mod_quiz\event\attempt_reopened', $reopenedevent);
         $this->assertEquals($attemptobj->get_context(), $reopenedevent->get_context());
-        $this->assertEquals(new moodle_url('/mod/quiz/review.php', ['attempt' => $attemptobj->get_attemptid()]),
-                $reopenedevent->get_url());
+        $this->assertEquals(
+            new moodle_url('/mod/quiz/review.php', ['attempt' => $attemptobj->get_attemptid()]),
+            $reopenedevent->get_url()
+        );
     }
 
-    public function test_quiz_attempt_walkthrough_abandoned_attempt_reopened_after_close_time() {
+    public function test_quiz_attempt_walkthrough_abandoned_attempt_reopened_after_close_time(): void {
         $quiz = $this->create_quiz_with_one_question('autoabandon');
         $originaltimeclose = $quiz->timeclose;
 
@@ -574,13 +646,17 @@ class attempt_walkthrough_test extends \advanced_testcase {
         $reopenedevent = array_shift($events);
         $this->assertInstanceOf('\mod_quiz\event\attempt_reopened', $reopenedevent);
         $this->assertEquals($attemptobj->get_context(), $reopenedevent->get_context());
-        $this->assertEquals(new moodle_url('/mod/quiz/review.php', ['attempt' => $attemptobj->get_attemptid()]),
-                $reopenedevent->get_url());
+        $this->assertEquals(
+            new moodle_url('/mod/quiz/review.php', ['attempt' => $attemptobj->get_attemptid()]),
+            $reopenedevent->get_url()
+        );
 
         $submittedevent = array_pop($events);
         $this->assertInstanceOf('\mod_quiz\event\attempt_submitted', $submittedevent);
         $this->assertEquals($attemptobj->get_context(), $submittedevent->get_context());
-        $this->assertEquals(new moodle_url('/mod/quiz/review.php', ['attempt' => $attemptobj->get_attemptid()]),
-                $submittedevent->get_url());
+        $this->assertEquals(
+            new moodle_url('/mod/quiz/review.php', ['attempt' => $attemptobj->get_attemptid()]),
+            $submittedevent->get_url()
+        );
     }
 }

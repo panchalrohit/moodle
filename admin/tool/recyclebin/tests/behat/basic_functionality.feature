@@ -11,9 +11,9 @@ Feature: Basic recycle bin functionality
       | student1 | Student | 1 | student@asd.com |
       | student2 | Student | 2 | student2@asd.com |
     And the following "courses" exist:
-      | fullname | shortname |
-      | Course 1 | C1 |
-      | Course 2 | C2 |
+      | fullname | shortname | initsections |
+      | Course 1 | C1        | 1            |
+      | Course 2 | C2        | 0            |
     And the following "activities" exist:
       | activity | course | section | name          | intro  |
       | assign   | C1     | 1       | Test assign 1 | Test 1 |
@@ -49,6 +49,7 @@ Feature: Basic recycle bin functionality
     Given I log in as "teacher1"
     And I am on "Course 1" course homepage with editing mode on
     And I delete "Test assign 1" activity
+    And I run all adhoc tasks
     When I navigate to "Recycle bin" in current page administration
     Then I should see "Test assign 1"
     And I should see "Contents will be permanently deleted after 7 days"
@@ -56,7 +57,7 @@ Feature: Basic recycle bin functionality
     And I should see "'Test assign 1' has been restored"
     And I wait to be redirected
     And I am on "Course 1" course homepage
-    And I should see "Test assign 1" in the "Topic 1" "section"
+    And I should see "Test assign 1" in the "Section 1" "section"
 
   @javascript
   Scenario: Restore a deleted course

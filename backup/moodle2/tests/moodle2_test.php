@@ -36,13 +36,13 @@ require_once($CFG->libdir . '/completionlib.php');
  * @copyright 2014 The Open University
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class moodle2_test extends \advanced_testcase {
+final class moodle2_test extends \advanced_testcase {
 
     /**
      * Tests the availability field on modules and sections is correctly
      * backed up and restored.
      */
-    public function test_backup_availability() {
+    public function test_backup_availability(): void {
         global $DB, $CFG;
 
         $this->resetAfterTest(true);
@@ -115,7 +115,7 @@ class moodle2_test extends \advanced_testcase {
      * ensures that a Moodle 2.6 backup with this data can still be correctly
      * restored.
      */
-    public function test_restore_legacy_availability() {
+    public function test_restore_legacy_availability(): void {
         global $DB, $USER, $CFG;
         require_once($CFG->dirroot . '/grade/querylib.php');
         require_once($CFG->libdir . '/completionlib.php');
@@ -141,7 +141,7 @@ class moodle2_test extends \advanced_testcase {
                 backup::TARGET_NEW_COURSE);
         $thrown = null;
         try {
-            $this->assertTrue($rc->execute_precheck());
+            $rc->execute_precheck();
             $rc->execute_plan();
             $rc->destroy();
         } catch (Exception $e) {
@@ -154,6 +154,11 @@ class moodle2_test extends \advanced_testcase {
         }
 
         $this->assertNull($thrown);
+
+        // Backup contained a question category in a deprecated context.
+        $results = $rc->get_precheck_results();
+        $this->assertCount(1, $results['warnings']);
+        $this->assertStringStartsWith('The questions category', $results['warnings'][0]);
 
         // Get information about the resulting course and check that it is set
         // up correctly.
@@ -262,7 +267,7 @@ class moodle2_test extends \advanced_testcase {
      * when it contains availability conditions that depend on other items in
      * course.
      */
-    public function test_duplicate_availability() {
+    public function test_duplicate_availability(): void {
         global $DB, $CFG;
 
         $this->resetAfterTest(true);
@@ -329,7 +334,7 @@ class moodle2_test extends \advanced_testcase {
      * When restoring a course, you can change the start date, which shifts other
      * dates. This test checks that certain dates are correctly modified.
      */
-    public function test_restore_dates() {
+    public function test_restore_dates(): void {
         global $DB, $CFG;
 
         $this->resetAfterTest(true);
@@ -387,7 +392,7 @@ class moodle2_test extends \advanced_testcase {
      * Test front page backup/restore and duplicate activities
      * @return void
      */
-    public function test_restore_frontpage() {
+    public function test_restore_frontpage(): void {
         global $DB, $CFG, $USER;
 
         $this->resetAfterTest(true);
@@ -648,7 +653,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Backup a course with enrolment methods and restore it without user data and without enrolment methods
      */
-    public function test_restore_without_users_without_enrolments() {
+    public function test_restore_without_users_without_enrolments(): void {
         global $DB;
 
         list($course, $newcourseid, $rc) = $this->prepare_for_enrolments_test(backup::TARGET_NEW_COURSE);
@@ -673,7 +678,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Backup a course with enrolment methods and restore it without user data with enrolment methods
      */
-    public function test_restore_without_users_with_enrolments() {
+    public function test_restore_without_users_with_enrolments(): void {
         global $DB;
 
         list($course, $newcourseid, $rc) = $this->prepare_for_enrolments_test(backup::TARGET_NEW_COURSE,
@@ -703,7 +708,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Backup a course with enrolment methods and restore it with user data and without enrolment methods
      */
-    public function test_restore_with_users_without_enrolments() {
+    public function test_restore_with_users_without_enrolments(): void {
         global $DB;
 
         list($course, $newcourseid, $rc) = $this->prepare_for_enrolments_test(backup::TARGET_NEW_COURSE,
@@ -731,7 +736,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Backup a course with enrolment methods and restore it with user data with enrolment methods
      */
-    public function test_restore_with_users_with_enrolments() {
+    public function test_restore_with_users_with_enrolments(): void {
         global $DB;
 
         list($course, $newcourseid, $rc) = $this->prepare_for_enrolments_test(backup::TARGET_NEW_COURSE,
@@ -761,7 +766,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Backup a course with enrolment methods and restore it with user data with enrolment methods merging into another course
      */
-    public function test_restore_with_users_with_enrolments_merging() {
+    public function test_restore_with_users_with_enrolments_merging(): void {
         global $DB;
 
         list($course, $newcourseid, $rc) = $this->prepare_for_enrolments_test(backup::TARGET_EXISTING_ADDING,
@@ -791,7 +796,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Backup a course with enrolment methods and restore it with user data with enrolment methods into another course deleting it's contents
      */
-    public function test_restore_with_users_with_enrolments_deleting() {
+    public function test_restore_with_users_with_enrolments_deleting(): void {
         global $DB;
 
         list($course, $newcourseid, $rc) = $this->prepare_for_enrolments_test(backup::TARGET_EXISTING_DELETING,
@@ -821,7 +826,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Test the block instance time fields (timecreated, timemodified) through a backup and restore.
      */
-    public function test_block_instance_times_backup() {
+    public function test_block_instance_times_backup(): void {
         global $DB;
         $this->resetAfterTest();
 
@@ -882,7 +887,7 @@ class moodle2_test extends \advanced_testcase {
      * When you restore a site with global search (or search indexing) turned on, then it should
      * add entries to the search index requests table so that the data gets indexed.
      */
-    public function test_restore_search_index_requests() {
+    public function test_restore_search_index_requests(): void {
         global $DB, $CFG, $USER;
 
         $this->resetAfterTest(true);
@@ -970,7 +975,7 @@ class moodle2_test extends \advanced_testcase {
      * Test restoring courses based on the backup plan. Primarily used with
      * the import functionality
      */
-    public function test_restore_course_using_plan_defaults() {
+    public function test_restore_course_using_plan_defaults(): void {
         global $DB, $CFG, $USER;
 
         $this->resetAfterTest(true);
@@ -1017,7 +1022,7 @@ class moodle2_test extends \advanced_testcase {
      * From 3.5, all question categories in each context are a child of a single top level question category for that context.
      * This test ensures that both Moodle 3.4 and 3.5 backups can still be correctly restored.
      */
-    public function test_restore_question_category_34_35() {
+    public function test_restore_question_category_34_35(): void {
         global $DB, $USER, $CFG;
 
         $this->resetAfterTest(true);
@@ -1040,13 +1045,24 @@ class moodle2_test extends \advanced_testcase {
                     backup::INTERACTIVE_NO, backup::MODE_GENERAL, $USER->id,
                     backup::TARGET_NEW_COURSE);
 
-            $this->assertTrue($rc->execute_precheck());
+            $rc->execute_precheck();
             $rc->execute_plan();
             $rc->destroy();
+
+            // Backup contained question category(s) in a deprecated context.
+            $expectedwarnings = $backupid === 'question_category_34_format' ? 1 : 2;
+            $results = $rc->get_precheck_results();
+            $this->assertCount($expectedwarnings, $results['warnings']);
+            for ($i = 0; $i < $expectedwarnings; $i++) {
+                $this->assertStringStartsWith('The questions category', $results['warnings'][$i]);
+            }
 
             // Get information about the resulting course and check that it is set up correctly.
             $modinfo = get_fast_modinfo($newcourseid);
             $quizzes = array_values($modinfo->get_instances_of('quiz'));
+            $qbanks = $modinfo->get_instances_of('qbank');
+            $this->assertCount(1, $qbanks);
+            $qbank = reset($qbanks);
             $contexts = $quizzes[0]->context->get_parent_contexts(true);
 
             $topcategorycount = [];
@@ -1055,6 +1071,11 @@ class moodle2_test extends \advanced_testcase {
 
                 // Make sure all question categories that were inside the backup file were restored correctly.
                 if ($context->contextlevel == CONTEXT_COURSE) {
+                    // Course context categories are deprecated and now get transferred to a qbank instance on the course
+                    // at point of restore.
+                    $cats = $DB->get_records('question_categories',
+                        ['contextid' => $qbank->context->id], 'parent', 'id, name, parent'
+                    );
                     $this->assertEquals(['top', 'Default for C101'], array_column($cats, 'name'));
                 } else if ($context->contextlevel == CONTEXT_MODULE) {
                     $this->assertEquals(['top', 'Default for Q1'], array_column($cats, 'name'));
@@ -1078,7 +1099,7 @@ class moodle2_test extends \advanced_testcase {
     /**
      * Test the content bank content through a backup and restore.
      */
-    public function test_contentbank_content_backup() {
+    public function test_contentbank_content_backup(): void {
         global $DB, $USER, $CFG;
         $this->resetAfterTest();
 
@@ -1109,7 +1130,7 @@ class moodle2_test extends \advanced_testcase {
      * @covers \backup_xapistate_structure_step
      * @covers \restore_xapistate_structure_step
      */
-    public function test_xapistate_backup() {
+    public function test_xapistate_backup(): void {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
@@ -1145,7 +1166,6 @@ class moodle2_test extends \advanced_testcase {
             'component' => 'mod_h5pactivity',
             'filearea' => 'package',
             'itemid' => 0,
-            'filepath' => '/',
             'filepath' => '/',
             'filename' => 'dummy.h5p',
             'addxapistate' => true,

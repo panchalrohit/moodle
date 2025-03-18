@@ -35,11 +35,11 @@ use core_course\local\repository\content_item_readonly_repository;
  * @copyright  2020 Jake Dallimore <jrhdallimore@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class content_item_readonly_repository_test extends \advanced_testcase {
+final class content_item_readonly_repository_test extends \advanced_testcase {
     /**
      * Test the repository method, find_all_for_course().
      */
-    public function test_find_all_for_course() {
+    public function test_find_all_for_course(): void {
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -47,17 +47,24 @@ class content_item_readonly_repository_test extends \advanced_testcase {
         $cir = new content_item_readonly_repository();
 
         $items = $cir->find_all_for_course($course, $user);
+        $modqbankfound = false;
         foreach ($items as $key => $item) {
             $this->assertInstanceOf(content_item::class, $item);
             $this->assertEquals($course->id, $item->get_link()->param('id'));
             $this->assertNotNull($item->get_link()->param('add'));
+
+            // We should never get an instance of mod_qbank, as they have FEATURE_CAN_DISPLAY set to false.
+            if ($item->get_component_name() === 'mod_qbank') {
+                $modqbankfound = true;
+            }
         }
+        $this->assertFalse($modqbankfound);
     }
 
     /**
      * Test verifying that content items for hidden modules are not returned.
      */
-    public function test_find_all_for_course_hidden_module() {
+    public function test_find_all_for_course_hidden_module(): void {
         $this->resetAfterTest();
         global $DB;
 
@@ -76,7 +83,7 @@ class content_item_readonly_repository_test extends \advanced_testcase {
     /**
      * Test confirming that all content items can be fetched, even those which require certain caps when in a course.
      */
-    public function test_find_all() {
+    public function test_find_all(): void {
         $this->resetAfterTest();
 
         global $DB, $CFG;
@@ -113,5 +120,11 @@ class content_item_readonly_repository_test extends \advanced_testcase {
             return str_contains($contentitem->get_name(), 'lti_type');
         });
         $this->assertCount(1, $all);
+
+        // We should never get an instance of mod_qbank, as they have FEATURE_CAN_DISPLAY set to false.
+        $all = $cir->find_all();
+        $all = array_filter($all, static fn($contentitem) => str_contains($contentitem->get_component_name(), 'mod_qbank'));
+
+        $this->assertCount(0, $all);
     }
 }

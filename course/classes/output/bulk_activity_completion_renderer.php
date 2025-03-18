@@ -14,13 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
- * Contains renderers for the bulk activity completion stuff.
- *
- * @package core_course
- * @copyright 2017 Adrian Greeve
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
+use core_completion\manager;
 
 defined('MOODLE_INTERNAL') || die;
 
@@ -36,24 +30,10 @@ require_once($CFG->dirroot.'/course/renderer.php');
 class core_course_bulk_activity_completion_renderer extends plugin_renderer_base {
 
     /**
-     * Render the navigation tabs for the completion page.
-     *
      * @deprecated since Moodle 4.0
-     * @param int|stdClass $courseorid the course object or id.
-     * @param String $page the tab to focus.
-     * @return string html
      */
-    public function navigation($courseorid, $page) {
-        debugging('navigation() has been deprecated as the tabs navigation structure in the completion page ' .
-            'has been replaced with tertiary navigation. Please use render_course_completion_action_bar() instead.',
-            DEBUG_DEVELOPER);
-
-        $tabs = core_completion\manager::get_available_completion_tabs($courseorid);
-        if (count($tabs) > 1) {
-            return $this->tabtree($tabs, $page);
-        } else {
-            return '';
-        }
+    public function navigation() {
+        throw new coding_exception(__FUNCTION__ . '() has been removed.');
     }
 
     /**
@@ -82,6 +62,7 @@ class core_course_bulk_activity_completion_renderer extends plugin_renderer_base
             if ($module->canmanage) {
                 // Only create the form if it's different from the one that has been sent.
                 $modform = $form;
+                $module->open = true;
                 if (empty($form) || !in_array($module->id, array_keys($modules))) {
                     $modform = new \core_completion_defaultedit_form(
                         null,
@@ -94,9 +75,20 @@ class core_course_bulk_activity_completion_renderer extends plugin_renderer_base
                             'forceuniqueid' => true,
                         ],
                     );
-                    $module->modulecollapsed = true;
+                    $module->open = false;
                 }
-                $module->formhtml = $modform->render();
+
+                $moduleform = manager::get_module_form($module->name, $course);
+                if ($moduleform) {
+                    $module->formhtml = $modform->render();
+                } else {
+                    // If the module form is not available, then display a message.
+                    $module->formhtml = $this->output->notification(
+                        get_string('incompatibleplugin', 'completion'),
+                        \core\output\notification::NOTIFY_INFO,
+                        false
+                    );
+                }
             }
         }
         $data->issite = $course->id == SITEID;
@@ -126,28 +118,11 @@ class core_course_bulk_activity_completion_renderer extends plugin_renderer_base
     }
 
     /**
-     * Renders the form for editing default completion
-     *
-     * @param moodleform $form
-     * @param array $modules
-     * @return string
      * @deprecated since Moodle 4.3 MDL-78528
-     * @todo MDL-78711 This will be deleted in Moodle 4.7
      */
-    public function edit_default_completion($form, $modules) {
-        debugging('edit_default_completion() is deprecated and will be removed.', DEBUG_DEVELOPER);
-
-        ob_start();
-        $form->display();
-        $formhtml = ob_get_contents();
-        ob_end_clean();
-
-        $data = (object)[
-            'form' => $formhtml,
-            'modules' => array_values($modules),
-            'modulescount' => count($modules),
-        ];
-        return parent::render_from_template('core_course/editdefaultcompletion', $data);
+    #[\core\attribute\deprecated(null, since: '4.3', mdl: 'MDL-78528', final: true)]
+    public function edit_default_completion() {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**

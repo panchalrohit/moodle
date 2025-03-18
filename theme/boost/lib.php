@@ -64,7 +64,7 @@ function theme_boost_get_extra_scss($theme) {
     }
 
     // Always return the background image with the scss when we have it.
-    return !empty($theme->settings->scss) ? $theme->settings->scss . ' ' . $content : $content;
+    return !empty($theme->settings->scss) ? "{$theme->settings->scss}  \n  {$content}" : $content;
 }
 
 /**
@@ -177,6 +177,11 @@ function theme_boost_get_pre_scss($theme) {
         array_map(function($target) use (&$scss, $value) {
             $scss .= '$' . $target . ': ' . $value . ";\n";
         }, (array) $targets);
+    }
+
+    // Add a new variable to indicate that we are running behat.
+    if (defined('BEHAT_SITE_RUNNING')) {
+        $scss .= "\$behatsite: true;\n";
     }
 
     // Prepend pre-scss.

@@ -47,16 +47,16 @@ if (trim($forum->intro) != '') {
     $introcontent = format_module_intro('forum', $forum, $coursemodule->id);
 
     if ($PAGE->user_is_editing() && has_capability('moodle/course:update', $modcontext)) {
-        $streditsummary  = get_string('editsummary');
+        $stredit  = get_string('edit');
         $introcontent .= html_writer::start_div('editinglink');
         $introcontent .= html_writer::link(
             new moodle_url('/course/modedit.php', [
                 'update' => $coursemodule->id,
                 'sesskey' => sesskey(),
             ]),
-            $OUTPUT->pix_icon('t/edit', $streditsummary),
+            $OUTPUT->pix_icon('t/edit', $stredit),
             [
-                'title' => $streditsummary,
+                'title' => $stredit,
             ]
         );
         $introcontent .= html_writer::end_div();
@@ -64,7 +64,7 @@ if (trim($forum->intro) != '') {
     echo $OUTPUT->box($introcontent, 'generalbox', 'intro');
 }
 
-echo html_writer::div(forum_get_subscribe_link($forum, $modcontext), 'subscribelink');
+echo html_writer::div(forum_get_subscribe_link($forum, $modcontext), 'subscribelink text-end');
 
 $numdiscussions = course_get_format($course)->get_course()->numdiscussions;
 if ($numdiscussions < 1) {

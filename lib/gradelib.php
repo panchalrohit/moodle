@@ -380,46 +380,19 @@ function grade_needs_regrade_progress_bar($courseid) {
  *
  * @param stdClass $course The course to regrade
  * @param callable $callback A function to call if regrading took place
- * @return moodle_url The URL to redirect to if redirecting
+ * @return moodle_url|false The URL to redirect to if redirecting
  */
-function grade_regrade_final_grades_if_required($course, callable $callback = null) {
-    global $PAGE, $OUTPUT;
+function grade_regrade_final_grades_if_required($course, ?callable $callback = null) {
+    global $PAGE;
 
     if (!grade_needs_regrade_final_grades($course->id)) {
         return false;
     }
 
     if (grade_needs_regrade_progress_bar($course->id)) {
-        if ($PAGE->state !== moodle_page::STATE_IN_BODY) {
-            $PAGE->set_heading($course->fullname);
-            echo $OUTPUT->header();
-        }
-        echo $OUTPUT->heading(get_string('recalculatinggrades', 'grades'));
-        $progress = new \core\progress\display(true);
-        $status = grade_regrade_final_grades($course->id, null, null, $progress);
-
-        // Show regrade errors and set the course to no longer needing regrade (stop endless loop).
-        if (is_array($status)) {
-            foreach ($status as $error) {
-                $errortext = new \core\output\notification($error, \core\output\notification::NOTIFY_ERROR);
-                echo $OUTPUT->render($errortext);
-            }
-            $courseitem = grade_item::fetch_course_item($course->id);
-            $courseitem->regrading_finished();
-        }
-
-        if ($callback) {
-            //
-            $url = call_user_func($callback);
-        }
-
-        if (empty($url)) {
-            $url = $PAGE->url;
-        }
-
-        echo $OUTPUT->continue_button($url);
-        echo $OUTPUT->footer();
-        die();
+        // Queue ad-hoc task and redirect.
+        grade_regrade_final_grades($course->id, async: true);
+        return $callback ? call_user_func($callback) : $PAGE->url;
     } else {
         $result = grade_regrade_final_grades($course->id);
         if ($callback) {
@@ -430,10 +403,14 @@ function grade_regrade_final_grades_if_required($course, callable $callback = nu
 }
 
 /**
- * Returns grading information for given activity, optionally with user grades
+ * Returns grading information for given activity, optionally with user grades.
  * Manual, course or category items can not be queried.
  *
- * @category grade
+ * This function can be VERY costly - it is doing full course grades recalculation if needsupdate = 1
+ * for course grade item. So be sure you really need it.
+ * If you need just certain grades consider using grade_item::refresh_grades()
+ * together with grade_item::get_grade() instead.
+ *
  * @param int    $courseid ID of course
  * @param string $itemtype Type of grade item. For example, 'mod' or 'block'
  * @param string $itemmodule More specific then $itemtype. For example, 'forum' or 'quiz'. May be NULL for some item types
@@ -441,6 +418,7 @@ function grade_regrade_final_grades_if_required($course, callable $callback = nu
  * @param mixed  $userid_or_ids Either a single user ID, an array of user IDs or null. If user ID or IDs are not supplied returns information about grade_item
  * @return stdClass Object with keys {items, outcomes, errors}, where 'items' is an array of grade
  *               information objects (scaleid, name, grade and locked status, etc.) indexed with itemnumbers
+ * @category grade
  */
 function grade_get_grades($courseid, $itemtype, $itemmodule, $iteminstance, $userid_or_ids=null) {
     global $CFG;
@@ -1148,9 +1126,10 @@ function grade_recover_history_grades($userid, $courseid) {
  * @param int $userid If specified try to do a quick regrading of the grades of this user only
  * @param object $updated_item Optional grade item to be marked for regrading. It is required if $userid is set.
  * @param \core\progress\base $progress If provided, will be used to update progress on this long operation.
+ * @param bool $async If true, and we are recalculating an entire course's grades, defer processing to an ad-hoc task.
  * @return array|true true if ok, array of errors if problems found. Grade item id => error message
  */
-function grade_regrade_final_grades($courseid, $userid=null, $updated_item=null, $progress=null) {
+function grade_regrade_final_grades($courseid, $userid=null, $updated_item=null, $progress=null, bool $async = false) {
     // This may take a very long time and extra memory.
     \core_php_time_limit::raise();
     raise_memory_limit(MEMORY_EXTRA);
@@ -1174,6 +1153,35 @@ function grade_regrade_final_grades($courseid, $userid=null, $updated_item=null,
     } else {
         if (!$course_item->needsupdate) {
             // nothing to do :-)
+            if ($progress instanceof \core\progress\stored) {
+                // The regrade was already run elsewhere without the stored progress, so just start and end it now.
+                $progress->start_progress(get_string('recalculatinggrades', 'grades'));
+                $progress->end_progress();
+            }
+            return true;
+        }
+        // Defer recalculation to an ad-hoc task.
+        if ($async) {
+            $regradecache = cache::make_from_params(
+                mode: cache_store::MODE_REQUEST,
+                component: 'core',
+                area: 'grade_regrade_final_grades',
+                options: [
+                    'simplekeys' => true,
+                    'simpledata' => true,
+                ],
+            );
+            // If the courseid already exists in the cache, return so we don't do this multiple times per request.
+            if ($regradecache->get($courseid)) {
+                return true;
+            }
+            $task = \core_course\task\regrade_final_grades::create($courseid);
+            $taskid = \core\task\manager::queue_adhoc_task($task, true);
+            if ($taskid) {
+                $task->set_id($taskid);
+                $task->initialise_stored_progress();
+            }
+            $regradecache->set($courseid, true);
             return true;
         }
     }
@@ -1216,7 +1224,7 @@ function grade_regrade_final_grades($courseid, $userid=null, $updated_item=null,
         }
     }
 
-    $progress->start_progress('regrade_course', $progresstotal);
+    $progress->start_progress(get_string('recalculatinggrades', 'grades'), $progresstotal);
 
     $errors = array();
     $finalids = array();
@@ -1596,7 +1604,7 @@ function grade_course_reset($courseid) {
     grade_grab_course_grades($courseid);
 
     // recalculate all grades
-    grade_regrade_final_grades($courseid);
+    grade_regrade_final_grades($courseid, async: true);
     return true;
 }
 

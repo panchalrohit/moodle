@@ -23,7 +23,8 @@
  */
 
 import {BaseComponent} from 'core/reactive';
-import {debounce} from 'core/utils';
+import Collapse from 'theme_boost/bootstrap/collapse';
+import {throttle, debounce} from 'core/utils';
 import {getCurrentCourseEditor} from 'core_courseformat/courseeditor';
 import Config from 'core/config';
 import inplaceeditable from 'core/inplace_editable';
@@ -33,9 +34,8 @@ import Fragment from 'core/fragment';
 import Templates from 'core/templates';
 import DispatchActions from 'core_courseformat/local/content/actions';
 import * as CourseEvents from 'core_course/events';
-// The jQuery module is only used for interacting with Boostrap 4. It can we removed when MDL-71979 is integrated.
-import jQuery from 'jquery';
 import Pending from 'core/pending';
+import log from "core/log";
 
 export default class Component extends BaseComponent {
 
@@ -55,11 +55,15 @@ export default class Component extends BaseComponent {
             COURSE_SECTIONLIST: `[data-for='course_sectionlist']`,
             CM: `[data-for='cmitem']`,
             TOGGLER: `[data-action="togglecoursecontentsection"]`,
-            COLLAPSE: `[data-toggle="collapse"]`,
+            COLLAPSE: `[data-bs-toggle="collapse"]`,
             TOGGLEALL: `[data-toggle="toggleall"]`,
             // Formats can override the activity tag but a default one is needed to create new elements.
             ACTIVITYTAG: 'li',
             SECTIONTAG: 'li',
+        };
+        this.selectorGenerators = {
+            cmNameFor: (id) => `[data-cm-name-for='${id}']`,
+            sectionNameFor: (id) => `[data-section-name-for='${id}']`,
         };
         // Default classes to toggle on refresh.
         this.classes = {
@@ -76,7 +80,7 @@ export default class Component extends BaseComponent {
         this.sections = {};
         this.cms = {};
         // The page section return.
-        this.sectionReturn = descriptor.sectionReturn ?? 0;
+        this.sectionReturn = descriptor.sectionReturn ?? null;
         this.debouncedReloads = new Map();
     }
 
@@ -89,8 +93,14 @@ export default class Component extends BaseComponent {
      * @return {Component}
      */
     static init(target, selectors, sectionReturn) {
+        let element = document.querySelector(target);
+        // TODO Remove this if condition as part of MDL-83851.
+        if (!element) {
+            log.debug('Init component with id is deprecated, use a query selector instead.');
+            element = document.getElementById(target);
+        }
         return new Component({
-            element: document.getElementById(target),
+            element,
             reactive: getCurrentCourseEditor(),
             selectors,
             sectionReturn,
@@ -147,11 +157,8 @@ export default class Component extends BaseComponent {
         this.addEventListener(
             document,
             "scroll",
-            this._scrollHandler
+            throttle(this._scrollHandler.bind(this), 50)
         );
-        setTimeout(() => {
-            this._scrollHandler();
-        }, 500);
     }
 
     /**
@@ -173,17 +180,18 @@ export default class Component extends BaseComponent {
 
             const section = event.target.closest(this.selectors.SECTION);
             const toggler = section.querySelector(this.selectors.COLLAPSE);
-            const isCollapsed = toggler?.classList.contains(this.classes.COLLAPSED) ?? false;
-
-            if (isChevron || isCollapsed) {
-                // Update the state.
-                const sectionId = section.getAttribute('data-id');
-                this.reactive.dispatch(
-                    'sectionContentCollapsed',
-                    [sectionId],
-                    !isCollapsed
-                );
+            let isCollapsed = toggler?.classList.contains(this.classes.COLLAPSED) ?? false;
+            // If the click was on the chevron, Bootstrap already toggled the section before this event.
+            if (isChevron) {
+                isCollapsed = !isCollapsed;
             }
+
+            const sectionId = section.getAttribute('data-id');
+            this.reactive.dispatch(
+                'sectionContentCollapsed',
+                [sectionId],
+                !isCollapsed,
+            );
         }
     }
 
@@ -230,8 +238,10 @@ export default class Component extends BaseComponent {
             {watch: `cm.sectionid:updated`, handler: this._reloadCm},
             {watch: `cm.indent:updated`, handler: this._reloadCm},
             {watch: `cm.groupmode:updated`, handler: this._reloadCm},
+            {watch: `cm.name:updated`, handler: this._refreshCmName},
             // Update section number and title.
             {watch: `section.number:updated`, handler: this._refreshSectionNumber},
+            {watch: `section.title:updated`, handler: this._refreshSectionTitle},
             // Collapse and expand sections.
             {watch: `section.contentcollapsed:updated`, handler: this._refreshSectionCollapsed},
             // Sections and cm sorting.
@@ -246,9 +256,26 @@ export default class Component extends BaseComponent {
     }
 
     /**
-     * Update section collapsed state via bootstrap 4 if necessary.
+     * Update a course module name on the whole page.
      *
-     * Formats that do not use bootstrap 4 must override this method in order to keep the section
+     * @param {object} param
+     * @param {Object} param.element details the update details.
+     */
+    _refreshCmName({element}) {
+        // Update classes.
+        // Replace the text content of the cm name.
+        const allCmNamesFor = this.getElements(
+            this.selectorGenerators.cmNameFor(element.id)
+        );
+        allCmNamesFor.forEach((cmNameFor) => {
+            cmNameFor.textContent = element.name;
+        });
+    }
+
+    /**
+     * Update section collapsed state via bootstrap if necessary.
+     *
+     * Formats that do not use bootstrap must override this method in order to keep the section
      * toggling working.
      *
      * @param {object} args
@@ -274,11 +301,11 @@ export default class Component extends BaseComponent {
             if (!collapsible) {
                 return;
             }
-
-            // Course index is based on Bootstrap 4 collapsibles. To collapse them we need jQuery to
-            // interact with collapsibles methods. Hopefully, this will change in Bootstrap 5 because
-            // it does not require jQuery anymore (when MDL-71979 is integrated).
-            jQuery(collapsible).collapse(element.contentcollapsed ? 'hide' : 'show');
+            if (element.contentcollapsed) {
+                Collapse.getOrCreateInstance(collapsible, {toggle: false}).hide();
+            } else {
+                Collapse.getOrCreateInstance(collapsible, {toggle: false}).show();
+            }
         }
 
         this._refreshAllSectionsToggler(state);
@@ -409,6 +436,22 @@ export default class Component extends BaseComponent {
     }
 
     /**
+     * Update a course section name on the whole page.
+     *
+     * @param {object} param
+     * @param {Object} param.element details the update details.
+     */
+    _refreshSectionTitle({element}) {
+        // Replace the text content of the section name in the whole page.
+        const allSectionNamesFor = document.querySelectorAll(
+            this.selectorGenerators.sectionNameFor(element.id)
+        );
+        allSectionNamesFor.forEach((sectionNameFor) => {
+            sectionNameFor.textContent = element.title;
+        });
+    }
+
+    /**
      * Refresh a section cm list.
      *
      * @param {Object} param
@@ -429,14 +472,14 @@ export default class Component extends BaseComponent {
      * Refresh the section list.
      *
      * @param {Object} param
-     * @param {Object} param.element details the update details.
+     * @param {Object} param.state the full state object.
      */
-    _refreshCourseSectionlist({element}) {
+    _refreshCourseSectionlist({state}) {
         // If we have a section return means we only show a single section so no need to fix order.
-        if (this.reactive.sectionReturn != 0) {
+        if (this.reactive.sectionReturn !== null) {
             return;
         }
-        const sectionlist = element.sectionlist ?? [];
+        const sectionlist = this.reactive.getExporter().listedSectionIds(state);
         const listparent = this.getElement(this.selectors.COURSE_SECTIONLIST);
         // For now section cannot be created at a frontend level.
         const createSection = this._createSectionItem.bind(this);
@@ -541,7 +584,7 @@ export default class Component extends BaseComponent {
                 {
                     id: cmId,
                     courseid: Config.courseId,
-                    sr: this.reactive.sectionReturn ?? 0,
+                    sr: this.reactive.sectionReturn ?? null,
                 }
             );
             promise.then((html, js) => {
@@ -608,7 +651,7 @@ export default class Component extends BaseComponent {
                 {
                     id: element.id,
                     courseid: Config.courseId,
-                    sr: this.reactive.sectionReturn ?? 0,
+                    sr: this.reactive.sectionReturn ?? null,
                 }
             );
             promise.then((html, js) => {
@@ -713,22 +756,22 @@ export default class Component extends BaseComponent {
             }
         });
 
-        // Dndupload add a fake element we need to keep.
-        let dndFakeActivity;
-
         // Remove the remaining elements.
+        const orphanElements = [];
         while (container.children.length > neworder.length) {
             const lastchild = container.lastChild;
-            if (lastchild?.classList?.contains('dndupload-preview')) {
-                dndFakeActivity = lastchild;
+            // Any orphan element is always displayed after the listed elements.
+            // Also, some third-party plugins can use a fake dndupload-preview indicator.
+            if (lastchild?.classList?.contains('dndupload-preview') || lastchild.dataset?.orphan) {
+                orphanElements.push(lastchild);
             } else {
                 dettachedelements[lastchild?.dataset?.id ?? 0] = lastchild;
             }
             container.removeChild(lastchild);
         }
-        // Restore dndupload fake element.
-        if (dndFakeActivity) {
-            container.append(dndFakeActivity);
-        }
+        // Restore orphan elements.
+        orphanElements.forEach((element) => {
+            container.append(element);
+        });
     }
 }

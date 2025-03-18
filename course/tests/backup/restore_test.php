@@ -35,7 +35,7 @@ require_once($CFG->dirroot . '/course/format/tests/fixtures/format_theunittest.p
  * @copyright  2016 Frédéric Massart - FMCorz.net
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class restore_test extends \advanced_testcase {
+final class restore_test extends \advanced_testcase {
 
     /**
      * Backup a course and return its backup ID.
@@ -159,7 +159,6 @@ class restore_test extends \advanced_testcase {
 
         // Create the adhoc task.
         $asynctask = new \core\task\asynchronous_restore_task();
-        $asynctask->set_blocking(false);
         $asynctask->set_custom_data(array('backupid' => $restoreid));
         \core\task\manager::queue_adhoc_task($asynctask);
 
@@ -203,7 +202,7 @@ class restore_test extends \advanced_testcase {
         return $this->async_restore_course($backupid, 0, $userid, 0);
     }
 
-    public function test_async_restore_existing_idnumber_in_new_course() {
+    public function test_async_restore_existing_idnumber_in_new_course(): void {
         $this->resetAfterTest();
 
         $dg = $this->getDataGenerator();
@@ -215,7 +214,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals('', $c2->idnumber);
     }
 
-    public function test_async_restore_course_info_in_existing_course() {
+    public function test_async_restore_course_info_in_existing_course(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -226,13 +225,18 @@ class restore_test extends \advanced_testcase {
 
         $startdate = mktime(12, 0, 0, 7, 1, 2016); // 01-Jul-2016.
 
-        // Create two courses with different start dates,in each course create a chat that opens 1 week after the course start date.
+        // Create two courses with different start dates, in each course create an assignment
+        // that is due 1 week after the course start date.
         $c1 = $dg->create_course(['shortname' => 'SN', 'fullname' => 'FN', 'summary' => 'DESC', 'summaryformat' => FORMAT_MOODLE,
             'startdate' => $startdate]);
-        $chat1 = $dg->create_module('chat', ['name' => 'First', 'course' => $c1->id, 'chattime' => $c1->startdate + 1 * WEEKSECS]);
+        $assign1 = $dg->create_module('assign',
+            ['name' => 'First', 'course' => $c1->id, 'duedate' => $c1->startdate + 1 * WEEKSECS]
+        );
         $c2 = $dg->create_course(['shortname' => 'A', 'fullname' => 'B', 'summary' => 'C', 'summaryformat' => FORMAT_PLAIN,
             'startdate' => $startdate + 2 * WEEKSECS]);
-        $chat2 = $dg->create_module('chat', ['name' => 'Second', 'course' => $c2->id, 'chattime' => $c2->startdate + 1 * WEEKSECS]);
+        $assign2 = $dg->create_module('assign',
+            ['name' => 'Second', 'course' => $c2->id, 'duedate' => $c2->startdate + 1 * WEEKSECS]
+        );
         $backupid = $this->backup_course($c1->id);
 
         // The information is restored but adapted because names are already taken.
@@ -243,15 +247,15 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals(FORMAT_MOODLE, $c2->summaryformat);
         $this->assertEquals($startdate, $c2->startdate);
 
-        // Now course c2 has two chats - one ('Second') was already there and one ('First') was restored from the backup.
+        // Now course c2 has two assignments - one ('Second') was already there and one ('First') was restored from the backup.
         // Their dates are exactly the same as they were in the original modules.
-        $restoredchat1 = $DB->get_record('chat', ['name' => 'First', 'course' => $c2->id]);
-        $restoredchat2 = $DB->get_record('chat', ['name' => 'Second', 'course' => $c2->id]);
-        $this->assertEquals($chat1->chattime, $restoredchat1->chattime);
-        $this->assertEquals($chat2->chattime, $restoredchat2->chattime);
+        $restoredassign1 = $DB->get_record('assign', ['name' => 'First', 'course' => $c2->id]);
+        $restoredassign2 = $DB->get_record('assign', ['name' => 'Second', 'course' => $c2->id]);
+        $this->assertEquals($assign1->duedate, $restoredassign1->duedate);
+        $this->assertEquals($assign2->duedate, $restoredassign2->duedate);
     }
 
-    public function test_async_restore_course_info_in_existing_course_delete_first() {
+    public function test_async_restore_course_info_in_existing_course_delete_first(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -262,27 +266,32 @@ class restore_test extends \advanced_testcase {
 
         $startdate = mktime(12, 0, 0, 7, 1, 2016); // 01-Jul-2016.
 
-        // Create two courses with different start dates,in each course create a chat that opens 1 week after the course start date.
+        // Create two courses with different start dates, in each course create an assignment
+        // that is due 1 week after the course start date.
         $c1 = $dg->create_course(['shortname' => 'SN', 'fullname' => 'FN', 'summary' => 'DESC', 'summaryformat' => FORMAT_MOODLE,
             'startdate' => $startdate]);
-        $chat1 = $dg->create_module('chat', ['name' => 'First', 'course' => $c1->id, 'chattime' => $c1->startdate + 1 * WEEKSECS]);
+        $assign1 = $dg->create_module('assign',
+            ['name' => 'First', 'course' => $c1->id, 'duedate' => $c1->startdate + 1 * WEEKSECS]
+        );
         $c2 = $dg->create_course(['shortname' => 'A', 'fullname' => 'B', 'summary' => 'C', 'summaryformat' => FORMAT_PLAIN,
             'startdate' => $startdate + 2 * WEEKSECS]);
-        $chat2 = $dg->create_module('chat', ['name' => 'Second', 'course' => $c2->id, 'chattime' => $c2->startdate + 1 * WEEKSECS]);
+        $assign2 = $dg->create_module('assign',
+            ['name' => 'Second', 'course' => $c2->id, 'duedate' => $c2->startdate + 1 * WEEKSECS]
+        );
         $backupid = $this->backup_course($c1->id);
 
         // The information is restored and the existing course settings is modified.
         $c2 = $this->async_restore_to_existing_course($backupid, $c2->id, 2, backup::TARGET_CURRENT_DELETING);
         $this->assertEquals(FORMAT_MOODLE, $c2->summaryformat);
 
-        // Now course2 should have a new forum with the original forum deleted.
-        $restoredchat1 = $DB->get_record('chat', ['name' => 'First', 'course' => $c2->id]);
-        $restoredchat2 = $DB->get_record('chat', ['name' => 'Second', 'course' => $c2->id]);
-        $this->assertEquals($chat1->chattime, $restoredchat1->chattime);
-        $this->assertEmpty($restoredchat2);
+        // Now course2 should have a new assignment with the original assignment deleted.
+        $restoredassign1 = $DB->get_record('assign', ['name' => 'First', 'course' => $c2->id]);
+        $restoredassign2 = $DB->get_record('assign', ['name' => 'Second', 'course' => $c2->id]);
+        $this->assertEquals($assign1->duedate, $restoredassign1->duedate);
+        $this->assertEmpty($restoredassign2);
     }
 
-    public function test_restore_existing_idnumber_in_new_course() {
+    public function test_restore_existing_idnumber_in_new_course(): void {
         $this->resetAfterTest();
 
         $dg = $this->getDataGenerator();
@@ -294,7 +303,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals('', $c2->idnumber);
     }
 
-    public function test_restore_non_existing_idnumber_in_new_course() {
+    public function test_restore_non_existing_idnumber_in_new_course(): void {
         global $DB;
         $this->resetAfterTest();
 
@@ -310,7 +319,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals('ABC', $c2->idnumber);
     }
 
-    public function test_restore_existing_idnumber_in_existing_course() {
+    public function test_restore_existing_idnumber_in_existing_course(): void {
         global $DB;
         $this->resetAfterTest();
 
@@ -327,7 +336,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals('ABC', $c1->idnumber);
     }
 
-    public function test_restore_non_existing_idnumber_in_existing_course() {
+    public function test_restore_non_existing_idnumber_in_existing_course(): void {
         global $DB;
         $this->resetAfterTest();
 
@@ -344,7 +353,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals('ABC', $c2->idnumber);
     }
 
-    public function test_restore_idnumber_in_existing_course_without_permissions() {
+    public function test_restore_idnumber_in_existing_course_without_permissions(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -368,7 +377,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals('DEF', $c2->idnumber);
     }
 
-    public function test_restore_course_info_in_new_course() {
+    public function test_restore_course_info_in_new_course(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -388,7 +397,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals($startdate, $c2->startdate);
     }
 
-    public function test_restore_course_with_users() {
+    public function test_restore_course_with_users(): void {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
@@ -424,7 +433,7 @@ class restore_test extends \advanced_testcase {
             $events[0]->get_description());
     }
 
-    public function test_restore_course_info_in_existing_course() {
+    public function test_restore_course_info_in_existing_course(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -435,13 +444,18 @@ class restore_test extends \advanced_testcase {
 
         $startdate = mktime(12, 0, 0, 7, 1, 2016); // 01-Jul-2016.
 
-        // Create two courses with different start dates,in each course create a chat that opens 1 week after the course start date.
+        // Create two courses with different start dates,in each course create an assignment
+        // that opens 1 week after the course start date.
         $c1 = $dg->create_course(['shortname' => 'SN', 'fullname' => 'FN', 'summary' => 'DESC', 'summaryformat' => FORMAT_MOODLE,
             'startdate' => $startdate]);
-        $chat1 = $dg->create_module('chat', ['name' => 'First', 'course' => $c1->id, 'chattime' => $c1->startdate + 1 * WEEKSECS]);
+        $assign1 = $dg->create_module('assign',
+            ['name' => 'First', 'course' => $c1->id, 'duedate' => $c1->startdate + 1 * WEEKSECS]
+        );
         $c2 = $dg->create_course(['shortname' => 'A', 'fullname' => 'B', 'summary' => 'C', 'summaryformat' => FORMAT_PLAIN,
             'startdate' => $startdate + 2 * WEEKSECS]);
-        $chat2 = $dg->create_module('chat', ['name' => 'Second', 'course' => $c2->id, 'chattime' => $c2->startdate + 1 * WEEKSECS]);
+        $assign2 = $dg->create_module('assign',
+            ['name' => 'Second', 'course' => $c2->id, 'duedate' => $c2->startdate + 1 * WEEKSECS]
+        );
         $backupid = $this->backup_course($c1->id);
 
         // The information is restored but adapted because names are already taken.
@@ -454,13 +468,13 @@ class restore_test extends \advanced_testcase {
 
         // Now course c2 has two chats - one ('Second') was already there and one ('First') was restored from the backup.
         // Their dates are exactly the same as they were in the original modules.
-        $restoredchat1 = $DB->get_record('chat', ['name' => 'First', 'course' => $c2->id]);
-        $restoredchat2 = $DB->get_record('chat', ['name' => 'Second', 'course' => $c2->id]);
-        $this->assertEquals($chat1->chattime, $restoredchat1->chattime);
-        $this->assertEquals($chat2->chattime, $restoredchat2->chattime);
+        $restoredassign1 = $DB->get_record('assign', ['name' => 'First', 'course' => $c2->id]);
+        $restoredassign2 = $DB->get_record('assign', ['name' => 'Second', 'course' => $c2->id]);
+        $this->assertEquals($assign1->duedate, $restoredassign1->duedate);
+        $this->assertEquals($assign2->duedate, $restoredassign2->duedate);
     }
 
-    public function test_restore_course_shortname_in_existing_course_without_permissions() {
+    public function test_restore_course_shortname_in_existing_course_without_permissions(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -484,7 +498,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals(FORMAT_MOODLE, $restored->summaryformat);
     }
 
-    public function test_restore_course_fullname_in_existing_course_without_permissions() {
+    public function test_restore_course_fullname_in_existing_course_without_permissions(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -508,7 +522,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals(FORMAT_MOODLE, $restored->summaryformat);
     }
 
-    public function test_restore_course_summary_in_existing_course_without_permissions() {
+    public function test_restore_course_summary_in_existing_course_without_permissions(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -532,7 +546,7 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals($c2->summaryformat, $restored->summaryformat);
     }
 
-    public function test_restore_course_startdate_in_existing_course_without_permissions() {
+    public function test_restore_course_startdate_in_existing_course_without_permissions(): void {
         global $DB;
         $this->resetAfterTest();
         $dg = $this->getDataGenerator();
@@ -544,15 +558,20 @@ class restore_test extends \advanced_testcase {
         $dg->role_assign($manager->id, $u1->id);
         $dg->role_assign($roleid, $u1->id);
 
-        // Create two courses with different start dates,in each course create a chat that opens 1 week after the course start date.
+        // Create two courses with different start dates, in each course create an assignment that
+        // is due 1 week after the course start date.
         $startdate1 = mktime(12, 0, 0, 7, 1, 2016); // 01-Jul-2016.
         $startdate2 = mktime(12, 0, 0, 1, 13, 2000); // 13-Jan-2000.
         $c1 = $dg->create_course(['shortname' => 'SN', 'fullname' => 'FN', 'summary' => 'DESC', 'summaryformat' => FORMAT_MOODLE,
             'startdate' => $startdate1]);
-        $chat1 = $dg->create_module('chat', ['name' => 'First', 'course' => $c1->id, 'chattime' => $c1->startdate + 1 * WEEKSECS]);
+        $assign1 = $dg->create_module('assign',
+            ['name' => 'First', 'course' => $c1->id, 'duedate' => $c1->startdate + 1 * WEEKSECS]
+        );
         $c2 = $dg->create_course(['shortname' => 'A', 'fullname' => 'B', 'summary' => 'C', 'summaryformat' => FORMAT_PLAIN,
             'startdate' => $startdate2]);
-        $chat2 = $dg->create_module('chat', ['name' => 'Second', 'course' => $c2->id, 'chattime' => $c2->startdate + 1 * WEEKSECS]);
+        $assign2 = $dg->create_module('assign',
+            ['name' => 'Second', 'course' => $c2->id, 'duedate' => $c2->startdate + 1 * WEEKSECS]
+        );
 
         // The startdate does not change.
         $backupid = $this->backup_course($c1->id);
@@ -563,22 +582,24 @@ class restore_test extends \advanced_testcase {
         $this->assertEquals(FORMAT_MOODLE, $restored->summaryformat);
         $this->assertEquals($startdate2, $restored->startdate);
 
-        // Now course c2 has two chats - one ('Second') was already there and one ('First') was restored from the backup.
-        // Start date of the restored chat ('First') was changed to be 1 week after the c2 start date.
-        $restoredchat1 = $DB->get_record('chat', ['name' => 'First', 'course' => $c2->id]);
-        $restoredchat2 = $DB->get_record('chat', ['name' => 'Second', 'course' => $c2->id]);
-        $this->assertNotEquals($chat1->chattime, $restoredchat1->chattime);
-        $this->assertEquals($chat2->chattime, $restoredchat2->chattime);
-        $this->assertEquals($c2->startdate + 1 * WEEKSECS, $restoredchat2->chattime);
+        // Now course c2 has two assignments - one ('Second') was already there and one ('First') was restored from the backup.
+        // Start date of the restored assignment ('First') was changed to be 1 week after the c2 start date.
+        $restoredassign1 = $DB->get_record('assign', ['name' => 'First', 'course' => $c2->id]);
+        $restoredassign2 = $DB->get_record('assign', ['name' => 'Second', 'course' => $c2->id]);
+        $this->assertNotEquals($assign1->duedate, $restoredassign1->duedate);
+        $this->assertEquals($assign2->duedate, $restoredassign2->duedate);
+        $this->assertEquals($c2->startdate + 1 * WEEKSECS, $restoredassign2->duedate);
     }
 
     /**
      * Tests course restore with editor in course format.
      *
      * @author Matthew Hilton
-     * @covers \core_courseformat
+     * @covers \core_courseformat\base
+     * @covers \backup_course_structure_step
+     * @covers \restore_course_structure_step
      */
-    public function test_restore_editor_courseformat() {
+    public function test_restore_editor_courseformat(): void {
         $this->resetAfterTest();
 
         // Setup user with restore permissions.

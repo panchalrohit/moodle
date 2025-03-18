@@ -29,37 +29,37 @@
 }}
 {{#istrackeduser}}
     {{#statuscomplete}}
-    <div class="badge badge-pill alert-success icon-no-margin" role="listitem" {{!
+    <div class="badge rounded-pill bg-success icon-no-margin" role="listitem" {{!
         }}{{#accessibledescription}}{{!
             }}title="{{.}}" {{!
             }}aria-label="{{.}}" {{!
         }}{{/accessibledescription}}>
         {{#pix}}i/checked{{/pix}}
-        <strong>{{#str}}completion_automatic:done, core_course{{/str}}</strong> <span class="font-weight-normal">{{description}}</span>
+        <strong>{{#str}}completion_automatic:done, core_course{{/str}}</strong> <span class="fw-normal">{{description}}</span>
     </div>
     {{/statuscomplete}}
     {{#statuscompletefail}}
-    <div class="badge badge-pill alert-danger icon-no-margin" role="listitem" {{!
+    <div class="badge rounded-pill bg-danger icon-no-margin" role="listitem" {{!
         }}{{#accessibledescription}}{{!
             }}title="{{.}}" {{!
             }}aria-label="{{.}}" {{!
         }}{{/accessibledescription}}>
         {{#pix}}e/cancel{{/pix}}
-        <strong>{{#str}}completion_automatic:failed, core_course{{/str}}</strong> <span class="font-weight-normal">{{description}}</span>
+        <strong>{{#str}}completion_automatic:failed, core_course{{/str}}</strong> <span class="fw-normal">{{description}}</span>
     </div>
     {{/statuscompletefail}}
     {{#statusincomplete}}
-    <div class="badge badge-pill badge-light" role="listitem" {{!
+    <div class="badge rounded-pill bg-light text-dark" role="listitem" {{!
         }}{{#accessibledescription}}{{!
             }}title="{{.}}" {{!
             }}aria-label="{{.}}" {{!
         }}{{/accessibledescription}}>
-        <strong>{{#str}}completion_automatic:todo, core_course{{/str}}</strong> <span class="font-weight-normal">{{description}}</span>
+        <strong>{{#str}}completion_automatic:todo, core_course{{/str}}</strong> <span class="fw-normal">{{description}}</span>
     </div>
     {{/statusincomplete}}
 {{/istrackeduser}}
 {{^istrackeduser}}
-    <div class="badge badge-pill badge-light" role="listitem">
-        <span class="font-weight-normal">{{description}}</span>
+    <div class="badge rounded-pill bg-light text-dark" role="listitem">
+        <span class="fw-normal">{{description}}</span>
     </div>
 {{/istrackeduser}}

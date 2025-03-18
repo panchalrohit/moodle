@@ -157,7 +157,7 @@
             margin-right: 28px;
             font-style: italic;
             font-weight: bold;
-            color: #{theme-color-level('success', 2)};
+            color: #{shift-color($success, 20%)};
 
             input {
                 margin-bottom: 0;
@@ -430,12 +430,6 @@
                             .itemselect {
                                 margin-right: 15px;
                             }
-
-                            .itemicon {
-                                font-size: 18px;
-                                width: 18px;
-                                height: 18px;
-                            }
                         }
 
                         &.column-weight {
@@ -496,14 +490,6 @@
                                     display: flex;
                                     min-height: 30px;
                                     align-items: center;
-
-                                    .form-check {
-                                        padding: 0;
-
-                                        .itemselect {
-                                            margin-right: 5px;
-                                        }
-                                    }
 
                                     a {
                                         &.toggle-category {
@@ -620,12 +606,15 @@
         }
 
         tr.lastrow {
-            position: sticky;
-            // Hack used by the observer to help detecting when the sticky 'Overall average' row is pinned. */
-            bottom: -1px;
 
-            &.pinned {
-                z-index: 4;
+            &:not(.userrow) {
+                position: sticky;
+                // Hack used by the observer to help detecting when the sticky last row is pinned. */
+                bottom: -1px;
+
+                &.pinned {
+                    z-index: 4;
+                }
             }
 
             td,

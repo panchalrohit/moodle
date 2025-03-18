@@ -725,7 +725,8 @@ function choice_get_post_actions() {
  */
 function choice_reset_course_form_definition(&$mform) {
     $mform->addElement('header', 'choiceheader', get_string('modulenameplural', 'choice'));
-    $mform->addElement('advcheckbox', 'reset_choice', get_string('removeresponses','choice'));
+    $mform->addElement('static', 'choicedelete', get_string('delete'));
+    $mform->addElement('advcheckbox', 'reset_choice', get_string('removeresponses', 'choice'));
 }
 
 /**
@@ -750,29 +751,39 @@ function choice_reset_userdata($data) {
     global $CFG, $DB;
 
     $componentstr = get_string('modulenameplural', 'choice');
-    $status = array();
+    $status = [];
 
     if (!empty($data->reset_choice)) {
         $choicessql = "SELECT ch.id
                        FROM {choice} ch
                        WHERE ch.course=?";
 
-        $DB->delete_records_select('choice_answers', "choiceid IN ($choicessql)", array($data->courseid));
-        $status[] = array('component'=>$componentstr, 'item'=>get_string('removeresponses', 'choice'), 'error'=>false);
+        $DB->delete_records_select('choice_answers', "choiceid IN ($choicessql)", [$data->courseid]);
+        $status[] = [
+            'component' => $componentstr,
+            'item' => get_string('removeresponses', 'choice'),
+            'error' => false,
+        ];
     }
 
-    /// updating dates - shift may be negative too
+    // Updating dates - shift may be negative too.
     if ($data->timeshift) {
         // Any changes to the list of dates that needs to be rolled should be same during course restore and course reset.
         // See MDL-9367.
-        shift_course_mod_dates('choice', array('timeopen', 'timeclose'), $data->timeshift, $data->courseid);
-        $status[] = array('component'=>$componentstr, 'item'=>get_string('datechanged'), 'error'=>false);
+        shift_course_mod_dates('choice', ['timeopen', 'timeclose'], $data->timeshift, $data->courseid);
+        $status[] = [
+            'component' => $componentstr,
+            'item' => get_string('date'),
+            'error' => false,
+        ];
     }
 
     return $status;
 }
 
 /**
+ * Get response data for a choice and group.
+ *
  * @global object
  * @global object
  * @global object
@@ -781,18 +792,21 @@ function choice_reset_userdata($data) {
  * @param object $cm
  * @param int $groupmode
  * @param bool $onlyactive Whether to get response data for active users only.
+ * @param int $groupid Group id, null for current group if choice has groups.
  * @return array
  */
-function choice_get_response_data($choice, $cm, $groupmode, $onlyactive) {
+function choice_get_response_data($choice, $cm, $groupmode, $onlyactive, ?int $groupid = null) {
     global $CFG, $USER, $DB;
 
     $context = context_module::instance($cm->id);
 
-/// Get the current group
     if ($groupmode > 0) {
-        $currentgroup = groups_get_activity_group($cm);
+        if (is_null($groupid)) {
+            // Get the current group.
+            $groupid = groups_get_activity_group($cm);
+        }
     } else {
-        $currentgroup = 0;
+        $groupid = 0;
     }
 
 /// Initialise the returned array, which is a matrix:  $allresponses[responseid][userid] = responseobject
@@ -803,7 +817,7 @@ function choice_get_response_data($choice, $cm, $groupmode, $onlyactive) {
     // TODO Does not support custom user profile fields (MDL-70456).
     $userfieldsapi = \core_user\fields::for_identity($context, false)->with_userpic();
     $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
-    $allresponses[0] = get_enrolled_users($context, 'mod/choice:choose', $currentgroup,
+    $allresponses[0] = get_enrolled_users($context, 'mod/choice:choose', $groupid,
             $userfields, null, 0, 0, $onlyactive);
 
 /// Get all the recorded responses for this choice
@@ -1265,16 +1279,6 @@ function mod_choice_core_calendar_event_timestart_updated(\calendar_event $event
         $event = \core\event\course_module_updated::create_from_cm($coursemodule, $context);
         $event->trigger();
     }
-}
-
-/**
- * Get icon mapping for font-awesome.
- */
-function mod_choice_get_fontawesome_icon_map() {
-    return [
-        'mod_choice:row' => 'fa-info',
-        'mod_choice:column' => 'fa-columns',
-    ];
 }
 
 /**

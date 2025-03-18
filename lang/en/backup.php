@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * This file contains the strings used by backup
+ * Strings for component 'core_backup', language 'en'.
  *
  * @package   core
  * @copyright 2010 Eloy
@@ -32,13 +32,13 @@ $string['asyncbackupprocessing'] = 'The backup is in progress';
 $string['asyncbadexecution'] = 'Bad backup controller execution. It is {$a} and should be 2.';
 $string['asynccheckprogress'] = 'You can check the progress at any time on the <a href="{$a}">restore page</a>.';
 $string['asyncgeneralsettings'] = 'Asynchronous backup/restore';
-$string['asyncemailenable'] = 'Enable message notifications';
-$string['asyncemailenabledetail'] = 'If enabled, users will receive a message when an asynchronous backup or restore completes.';
-$string['asyncmessagebody'] = 'Message';
-$string['asyncmessagebodydetail'] = 'Message to send when an asynchronous backup or restore completes.';
+$string['asyncemailenable'] = 'Enable notifications';
+$string['asyncemailenabledetail'] = 'If enabled, users will receive a notification when an asynchronous backup or restore completes.';
+$string['asyncmessagebody'] = 'Notification';
+$string['asyncmessagebodydetail'] = 'Notification to send when an asynchronous backup or restore completes.';
 $string['asyncmessagebodydefault'] = 'Your {operation} (ID: {backupid}) has completed successfully. You can access it here: <a href="{link}">{link}</a>.';
 $string['asyncmessagesubject'] = 'Subject';
-$string['asyncmessagesubjectdetail'] = 'Message subject';
+$string['asyncmessagesubjectdetail'] = 'Notification subject';
 $string['asyncmessagesubjectdefault'] = 'Moodle {operation} completed successfully';
 $string['asyncnowait'] = 'You don\'t need to wait here, as the process will continue in the background.';
 $string['asyncprocesspending'] = 'Process pending';
@@ -130,11 +130,11 @@ $string['configgeneralcalendarevents'] = 'Sets the default for including calenda
 $string['configgeneralcomments'] = 'Sets the default for including comments in a backup.';
 $string['configgeneralcompetencies'] = 'Sets the default for including competencies in a backup.';
 $string['configgeneralcontentbankcontent'] = 'Sets the default for including content bank content in a backup.';
+$string['configgeneralcustomfield'] = 'Sets the default for including custom fields in a backup.';
 $string['configgeneralfiles'] = 'Sets the default for including files in a backup. Please note: Disabling this setting will result in a backup which only includes references to files. This is not a problem if the backup is restored on the same site and the files have not been deleted according to the setting \'Clean up trash pool files\' (filescleanupperiod).';
 $string['configgeneralfilters'] = 'Sets the default for including filters in a backup.';
 $string['configgeneralhistories'] = 'Sets the default for including user history within a backup.';
 $string['configgenerallogs'] = 'If enabled logs will be included in backups by default.';
-$string['configgeneralquestionbank'] = 'If enabled the question bank will be included in backups by default. PLEASE NOTE: Disabling this setting will disable the backup of activities which use the question bank, such as the quiz.';
 $string['configgeneralgroups'] = 'Sets the default for including groups and groupings in a backup.';
 $string['configgeneralroleassignments'] = 'If enabled by default roles assignments will also be backed up.';
 $string['configgeneralpermissions'] = 'If enabled the role permissions will be imported. This may override existing permissions for enrolled users.';
@@ -150,6 +150,7 @@ $string['configrestorecalendarevents'] = 'Sets the default for restoring calenda
 $string['configrestorecomments'] = 'Sets the default for restoring comments.';
 $string['configrestorecompetencies'] = 'Sets the default for restoring competencies.';
 $string['configrestorecontentbankcontent'] = 'Sets the default for restoring content bank content.';
+$string['configrestorecustomfield'] = 'Sets the default for restoring custom fields.';
 $string['configrestoreenrolments'] = 'Sets the default for restoring enrolment methods.';
 $string['configrestorefilters'] = 'Sets the default for restoring filters.';
 $string['configrestorehistories'] = 'Sets the default for restoring user history if it was included in the backup.';
@@ -194,10 +195,11 @@ $string['currentstage4'] = 'Confirmation and review';
 $string['currentstage8'] = 'Perform backup';
 $string['currentstage16'] = 'Complete';
 $string['enableasyncbackup'] = 'Enable asynchronous backups';
-$string['enableasyncbackup_help'] = 'If enabled, all backup and restore operations will be done asynchronously. This does not affect imports and exports. Asynchronous backups and restores allow users to do other operations while a backup or restore is in progress.';
+$string['enableasyncbackup_help'] = 'If enabled, backup and restore operations will be done asynchronously. This provides a better user experience allowing users to do other operations while a backup or restore is in progress. This does not affect imports and exports.';
 $string['enterasearch'] = 'Enter a search';
 $string['error_block_for_module_not_found'] = 'Orphan block instance (id: {$a->bid}) for course module (id: {$a->mid}) found. This block will not be backed up';
 $string['error_course_module_not_found'] = 'Orphan course module (id: {$a}) found. This module will not be backed up.';
+$string['error_delegate_section_not_found'] = 'Missing delegate section form course module (ID {$a}). The section will not be backed up.';
 $string['errorcopyingbackupfile'] = "Failed to copy the backup file to the temporary folder before restoring.";
 $string['errorfilenamerequired'] = 'You must enter a valid filename for this backup';
 $string['errorfilenametoolong'] = 'The filename must be less than 255 characters in length.';
@@ -228,6 +230,7 @@ $string['generalcalendarevents'] = 'Include calendar events';
 $string['generalcomments'] = 'Include comments';
 $string['generalcompetencies'] = 'Include competencies';
 $string['generalcontentbankcontent'] = 'Include content bank content';
+$string['generalcustomfield'] = 'Include custom fields';
 $string['generalenrolments'] = 'Include enrolment methods';
 $string['generalfiles'] = 'Include files';
 $string['generalfilters'] = 'Include filters';
@@ -235,7 +238,6 @@ $string['generalhistories'] = 'Include histories';
 $string['generalgradehistories'] = 'Include histories';
 $string['generallegacyfiles'] = 'Include legacy course files';
 $string['generallogs'] = 'Include logs';
-$string['generalquestionbank'] = 'Include question bank';
 $string['generalgroups'] = 'Include groups and groupings';
 $string['generalrestoredefaults'] = 'General restore defaults';
 $string['mergerestoredefaults'] = 'Restore defaults when merging into another course';
@@ -275,6 +277,7 @@ $string['includeactivities'] = 'Include:';
 $string['includeditems'] = 'Included items:';
 $string['includesection'] = 'Section {$a}';
 $string['includeuserinfo'] = 'User data';
+$string['includeuserinfo_instance'] = 'Include {$a} user data';
 $string['includefilereferences'] = 'File references to external contents';
 $string['jumptofinalstep'] = 'Jump to final step';
 $string['keep'] = 'Keep';
@@ -312,9 +315,9 @@ $string['privacy:metadata:backup_controllers:operation'] = 'The operation that w
 $string['privacy:metadata:backup_controllers:timecreated'] = 'The time when the action was created';
 $string['privacy:metadata:backup_controllers:timemodified'] = 'The time when the action was modified';
 $string['privacy:metadata:backup_controllers:type'] = 'The type of the item being operated on, eg. activity.';
-$string['qcategory2coursefallback'] = 'The questions category "{$a->name}", originally at system/course category context in backup file, will be created at course context by restore';
+$string['qcategory2coursefallback'] = 'The questions category "{$a->name}", originally at system|course|course_category context in backup file, will be created at a question bank module context by restore';
 $string['qcategorycannotberestored'] = 'The questions category "{$a->name}" cannot be created by restore';
-$string['question2coursefallback'] = 'The questions category "{$a->name}", originally at system/course category context in backup file, will be created at course context by restore';
+$string['question2coursefallback'] = 'The questions category "{$a->name}", originally at system|course|course_category in backup file, will be created at a question bank module context by restore';
 $string['questioncannotberestored'] = 'The questions "{$a->name}" cannot be created by restore';
 $string['restoreactivity'] = 'Restore activity';
 $string['restorecourse'] = 'Restore course';
@@ -388,6 +391,7 @@ $string['rootsettingimscc1'] = 'Convert to IMS Common Cartridge 1.0';
 $string['rootsettingimscc11'] = 'Convert to IMS Common Cartridge 1.1';
 $string['rootsettingxapistate'] = 'Include user\'s state in content such as H5P activities';
 $string['samesitenotification'] = 'This backup was created with only references to files, not the files themselves. Restoring will only work on this site.';
+$string['section_prefix'] = 'Section {$a}: ';
 $string['sitecourseformatwarning'] = 'This is a site home backup. It can only be restored on the site home.';
 $string['storagecourseonly'] = 'Course backup filearea';
 $string['storagecourseandexternal'] = 'Course backup filearea and the specified directory';
@@ -414,6 +418,7 @@ $string['skipmodifdayshelp'] = 'Choose to skip courses that have not been modifi
 $string['skipmodifprev'] = 'Skip courses not modified since previous backup';
 $string['skipmodifprevhelp'] = 'Choose whether to skip courses that have not been modified since the last automatic backup. This requires logging to be enabled.';
 $string['status'] = 'Status';
+$string['subsectioncontent'] = 'Subsection content';
 $string['successful'] = 'Backup successful';
 $string['successfulcopy'] = 'Copy successful';
 $string['successfulrestore'] = 'Restore successful';
@@ -430,6 +435,6 @@ $string['module'] = 'Module';
 $string['morecoursesearchresults'] = 'More than {$a} courses found, showing first {$a} results';
 $string['recyclebin_desc'] = 'Note that these settings will also be used for the recycle bin.';
 
-// Deprecated since Moodle 4.4.
-$string['copycourseheading'] = 'Copy a course';
-$string['backupcourse'] = 'Backup course: {$a}';
+// Deprecated since Moodle 5.0.
+$string['configgeneralquestionbank'] = 'If enabled the question bank will be included in backups by default. PLEASE NOTE: Disabling this setting will disable the backup of activities which use the question bank, such as the quiz.';
+$string['generalquestionbank'] = 'Include question bank';

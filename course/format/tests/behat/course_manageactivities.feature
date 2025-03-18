@@ -6,10 +6,11 @@ Feature: Verify edit utils availability
 
   Background:
     Given the following "course" exists:
-      | fullname    | Course 1 |
-      | shortname   | C1       |
-      | category    | 0        |
-      | numsections | 3        |
+      | fullname     | Course 1 |
+      | shortname    | C1       |
+      | category     | 0        |
+      | numsections  | 3        |
+      | initsections | 1        |
     And the following "activities" exist:
       | activity | name              | intro                       | course | idnumber | section |
       | assign   | Activity sample 1 | Test assignment description | C1     | sample1  | 1       |
@@ -35,12 +36,14 @@ Feature: Verify edit utils availability
     Given I log in as "teacher1"
     When I am on "Course 1" course homepage
     And I turn editing mode on
+    And I open the activity chooser
     Then I should see "Add an activity or resource"
+    And I click on "Close" "button" in the "Add an activity or resource" "dialogue"
     And I open "Activity sample 1" actions menu
     And I should see "Edit settings"
-    And ".section_action_menu" "css_element" should exist in the "Topic 1" "section"
-    And I click on ".section_action_menu" "css_element" in the "Topic 1" "section"
-    And I should see "Edit topic"
+    And ".section_action_menu" "css_element" should exist in the "Section 1" "section"
+    And I click on ".section_action_menu" "css_element" in the "Section 1" "section"
+    And I should see "Edit settings"
 
   @javascript
   Scenario: Edit mode should not be available to students.
@@ -54,7 +57,7 @@ Feature: Verify edit utils availability
     When I am on "Course 1" course homepage
     And I turn editing mode on
     Then I should see "Add an activity or resource"
-    But I should not see "Add topic"
+    But I should not see "Add section"
     And I open "Activity sample 1" actions menu
     And I should see "Edit settings"
     And I open section "1" edit menu
@@ -70,9 +73,9 @@ Feature: Verify edit utils availability
     When I am on "Course 1" course homepage
     And I turn editing mode on
     Then I should see "Add an activity or resource"
-    And I should see "Add topic"
+    And I should see "Add section"
     And I open "Activity sample 1" actions menu
     And I should see "Edit settings"
-    And ".section_action_menu" "css_element" should exist in the "Topic 1" "section"
-    And I click on ".section_action_menu" "css_element" in the "Topic 1" "section"
-    And I should see "Edit topic"
+    And ".section_action_menu" "css_element" should exist in the "Section 1" "section"
+    And I click on ".section_action_menu" "css_element" in the "Section 1" "section"
+    And I should see "Edit settings"

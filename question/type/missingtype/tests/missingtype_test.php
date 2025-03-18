@@ -41,7 +41,7 @@ require_once($CFG->dirroot . '/question/type/missingtype/questiontype.php');
  * @copyright  2010 The Open University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class missingtype_test extends \question_testcase {
+final class missingtype_test extends \question_testcase {
 
     protected function get_unknown_questiondata() {
         $questiondata = new \stdClass();
@@ -72,23 +72,23 @@ class missingtype_test extends \question_testcase {
         return $questiondata;
     }
 
-    public function test_cannot_grade() {
+    public function test_cannot_grade(): void {
         $q = new qtype_missingtype_question();
         $this->expectException(\moodle_exception::class);
         $q->grade_response(array());
     }
 
-    public function test_load_qtype_strict() {
+    public function test_load_qtype_strict(): void {
         $this->expectException(\moodle_exception::class);
         $qtype = question_bank::get_qtype('strange_unknown');
     }
 
-    public function test_load_qtype_lax() {
+    public function test_load_qtype_lax(): void {
         $qtype = question_bank::get_qtype('strange_unknown', false);
         $this->assertInstanceOf('qtype_missingtype', $qtype);
     }
 
-    public function test_make_question() {
+    public function test_make_question(): void {
         $questiondata = $this->get_unknown_questiondata();
         $q = question_bank::make_question($questiondata);
         $this->assertInstanceOf('qtype_missingtype_question', $q);
@@ -98,7 +98,7 @@ class missingtype_test extends \question_testcase {
                 $questiondata->questiontext);
     }
 
-    public function test_render_missing() {
+    public function test_render_missing(): void {
         $questiondata = $this->get_unknown_questiondata();
         $q = question_bank::make_question($questiondata);
         $qa = new testable_question_attempt($q, 0);
@@ -118,29 +118,75 @@ class missingtype_test extends \question_testcase {
                 'div', 'class', 'warning missingqtypewarning'), $output);
     }
 
-    public function test_get_question_summary() {
+    public function test_get_question_summary(): void {
         $q = new qtype_missingtype_question();
         $q->questiontext = '<b>Test</b>';
         $this->assertEquals('TEST', $q->get_question_summary());
     }
 
-    public function test_summarise_response() {
+    public function test_summarise_response(): void {
         $q = new qtype_missingtype_question();
         $this->assertNull($q->summarise_response(array('a' => 'irrelevant')));
     }
 
-    public function test_can_analyse_responses() {
+    public function test_can_analyse_responses(): void {
         $qtype = new qtype_missingtype();
         $this->assertFalse($qtype->can_analyse_responses());
     }
 
-    public function test_get_random_guess_score() {
+    public function test_get_random_guess_score(): void {
         $qtype = new qtype_missingtype();
         $this->assertNull($qtype->get_random_guess_score(null));
     }
 
-    public function test_get_possible_responses() {
+    public function test_get_possible_responses(): void {
         $qtype = new qtype_missingtype();
         $this->assertEquals(array(), $qtype->get_possible_responses(null));
     }
+
+    /**
+     * Test moving a question category from one context to another when it contains questions of an invalid type
+     *
+     * @covers ::question_move_category_to_context
+     */
+    public function test_move_question_category_with_missing_question_types(): void {
+
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // Create a course we can move the category to.
+        $course = $this->getDataGenerator()->create_course();
+
+        // Create a quiz module to attach the question category to.
+        $module1 = $this->getDataGenerator()->create_module('quiz', ['course' => $course->id]);
+
+        // And another one to move things to.
+        $module2 = $this->getDataGenerator()->create_module('quiz', ['course' => $course->id]);
+
+        // Create a question category on the system context.
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $category = $generator->create_question_category([
+            'contextid' => \core\context\module::instance($module1->cmid)->id,
+        ]);
+
+        // Create a question of an invalid type and put it in the category.
+        $question = $generator->create_question('missingtype', null, ['category' => $category->id]);
+
+        // Update the question to set an invalid qtype, as "missingtype" is actually installed and won't fail.
+        $question->qtype = 'invalid';
+        $DB->update_record('question', $question);
+
+        // We just want to assert that no exception is thrown.
+        $this->expectNotToPerformAssertions();
+
+        // Try and move the categories.
+        question_move_category_to_context(
+            $category->id,
+            \core\context\module::instance($module1->cmid)->id,
+            \core\context\module::instance($module2->cmid)->id,
+        );
+
+    }
+
 }

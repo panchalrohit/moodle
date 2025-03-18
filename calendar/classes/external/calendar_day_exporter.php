@@ -14,22 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
- * Contains event class for displaying the day view.
- *
- * @package   core_calendar
- * @copyright 2017 Simey Lameze <simey@moodle.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace core_calendar\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core\external\exporter;
+use core_calendar\output\humantimeperiod;
+use core_date;
+use DateTimeImmutable;
 use renderer_base;
 use moodle_url;
-use \core_calendar\local\event\container;
+use core_calendar\local\event\container;
 
 /**
  * Class for displaying the day view.
@@ -169,7 +162,12 @@ class calendar_day_exporter extends exporter {
             // We need to override default formatted time because it differs from day view.
             // Formatted time for day view adds a link to the day view.
             $legacyevent = container::get_event_mapper()->from_event_to_legacy_event($event);
-            $data->formattedtime = calendar_format_event_time($legacyevent, time(), null);
+            $humanperiod = humantimeperiod::create_from_timestamp(
+                starttimestamp: $legacyevent->timestart,
+                endtimestamp: $legacyevent->timestart + $legacyevent->timeduration,
+                link: new moodle_url(CALENDAR_URL . 'view.php'),
+            );
+            $data->formattedtime = $output->render($humanperiod);
 
             return $data;
         }, $this->related['events']);
@@ -209,7 +207,12 @@ class calendar_day_exporter extends exporter {
 
         // Need to account for user's timezone.
         $usernow = usergetdate(time());
-        $today = new \DateTimeImmutable();
+        $today = new DateTimeImmutable(
+            timezone: core_date::get_user_timezone_object(),
+        );
+
+        // The start time should use the day's date but the current
+        // time of the day (adjusted for user's timezone).
         $neweventtimestamp = $today->setTimestamp($date[0])->setTime(
             $usernow['hours'],
             $usernow['minutes'],

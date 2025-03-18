@@ -16,6 +16,8 @@
 
 namespace core_external;
 
+use core\tests\fake_plugins_test_trait;
+
 /**
  * Unit tests for core_external\external_api.
  *
@@ -25,7 +27,10 @@ namespace core_external;
  * @license     http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @covers      \core_external\external_api
  */
-class external_api_test extends \advanced_testcase {
+final class external_api_test extends \advanced_testcase {
+
+    use fake_plugins_test_trait;
+
     /**
      * Test the validate_parameters method.
      *
@@ -332,7 +337,7 @@ class external_api_test extends \advanced_testcase {
     /**
      * Test \core_external\external_api::get_context()_from_params parameter validation.
      *
-     * @covers \core_external\external_api::get_context
+     * @covers \core_external\external_api::get_context_from_params
      */
     public function test_get_context_params(): void {
         global $USER;
@@ -345,7 +350,7 @@ class external_api_test extends \advanced_testcase {
     /**
      * Test \core_external\external_api::get_context()_from_params parameter validation.
      *
-     * @covers \core_external\external_api::get_context
+     * @covers \core_external\external_api::get_context_from_params
      */
     public function test_get_context_params2(): void {
         global $USER;
@@ -357,7 +362,7 @@ class external_api_test extends \advanced_testcase {
 
     /**
      * Test \core_external\external_api::get_context()_from_params parameter validation.
-     * @covers \core_external\external_api::get_context
+     * @covers \core_external\external_api::get_context_from_params
      */
     public function test_get_context_params3(): void {
         global $USER;
@@ -374,7 +379,7 @@ class external_api_test extends \advanced_testcase {
      *
      * @return array
      */
-    public function all_external_info_provider(): array {
+    public static function all_external_info_provider(): array {
         global $DB;
 
         // We are testing here that all the external function descriptions can be generated without
@@ -462,6 +467,62 @@ class external_api_test extends \advanced_testcase {
     }
 
     /**
+     * Test verifying external API for a deprecated plugin type.
+     *
+     * @runInSeparateProcess
+     * @return void
+     */
+    public function test_external_api_deprecated_plugintype(): void {
+        $this->resetAfterTest();
+        global $CFG;
+        require_once($CFG->libdir . '/upgradelib.php'); // Needed for external_update_descriptions().
+
+        // Inject the 'fake' plugin type and deprecate it.
+        // Note: this method of injection is required to ensure core_component fully builds all caches from the ground up,
+        // which is necessary to test things like class autoloading.
+        $this->add_full_mocked_plugintype(
+            plugintype: 'fake',
+            path: 'lib/tests/fixtures/fakeplugins/fake',
+        );
+        $this->deprecate_full_mocked_plugintype('fake');
+        external_update_descriptions('fake_fullfeatured');
+
+        $this->assertNotFalse(
+            \core_external\external_api::external_function_info('fake_fullfeatured_service_test', IGNORE_MISSING)
+        );
+
+        $result = \core_external\external_api::call_external_function('fake_fullfeatured_service_test', []);
+        $this->assertArrayHasKey('error', $result);
+        $this->assertFalse($result['error']);
+        $this->assertArrayHasKey('data', $result);
+        $this->assertEquals('fake_fullfeatured service result', $result['data']['result']);
+    }
+
+    /**
+     * Test verifying external API for a phase 2 deprecated (deleted) plugin type.
+     *
+     * @runInSeparateProcess
+     * @return void
+     */
+    public function test_external_api_deleted_plugintype(): void {
+        $this->resetAfterTest();
+        global $CFG;
+        require_once($CFG->libdir . '/upgradelib.php'); // Needed for external_update_descriptions().
+
+        // Inject the 'fake' plugin type and flag it as deleted.
+        // Note: this method of injection is required to ensure core_component fully builds all caches from the ground up,
+        // which is necessary to test things like class autoloading.
+        $this->add_full_mocked_plugintype(
+            plugintype: 'fake',
+            path: 'lib/tests/fixtures/fakeplugins/fake',
+        );
+        $this->delete_full_mocked_plugintype('fake');
+        external_update_descriptions('fake_fullfeatured');
+
+        $this->assertFalse(\core_external\external_api::external_function_info('fake_fullfeatured_service_test', IGNORE_MISSING));
+    }
+
+    /**
      * Call the get_contect_from_params methods on the api class.
      *
      * @return mixed
@@ -469,7 +530,6 @@ class external_api_test extends \advanced_testcase {
     protected function get_context_from_params() {
         $rc = new \ReflectionClass(external_api::class);
         $method = $rc->getMethod('get_context_from_params');
-        $method->setAccessible(true);
         return $method->invokeArgs(null, func_get_args());
     }
 }

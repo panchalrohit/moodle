@@ -18,16 +18,16 @@ Feature: Several attempts in a quiz
       | student1 | C1     | student |
       | student2 | C1     | student |
       | teacher  | C1     | teacher |
+    And the following "activities" exist:
+      | activity | name   | intro              | course | idnumber | preferredbehaviour | navmethod  |
+      | quiz     | Quiz 1 | Quiz 1 description | C1     | quiz1    | immediatefeedback  | free       |
     And the following "question categories" exist:
-      | contextlevel | reference | name           |
-      | Course       | C1        | Test questions |
+      | contextlevel    | reference | name           |
+      | Activity module | quiz1     | Test questions |
     And the following "questions" exist:
       | questioncategory | qtype     | name | questiontext    |
       | Test questions   | truefalse | TF1  | First question  |
       | Test questions   | truefalse | TF2  | Second question |
-    And the following "activities" exist:
-      | activity | name   | intro              | course | idnumber | preferredbehaviour | navmethod  |
-      | quiz     | Quiz 1 | Quiz 1 description | C1     | quiz1    | immediatefeedback  | free       |
     And quiz "Quiz 1" contains the following questions:
       | question | page | requireprevious |
       | TF1      | 1    | 1               |
@@ -51,5 +51,7 @@ Feature: Several attempts in a quiz
   Scenario: The redo question buttons are visible after 2 attempts are preset for student1.
     Given I am on the "Quiz 1" "mod_quiz > View" page logged in as "student1"
     Then "Re-attempt quiz" "button" should exist
-    And "1" row "Marks / 2.00" column of "quizattemptsummary" table should contain "1.00"
-    And "2" row "Marks / 2.00" column of "quizattemptsummary" table should contain "0.00"
+    And I should see "Finished" in the "Attempt 1" "list_item"
+    And I should see "1.00/2.00" in the "Attempt 1" "list_item"
+    And I should see "Finished" in the "Attempt 2" "list_item"
+    And I should see "0.00/2.00" in the "Attempt 2" "list_item"

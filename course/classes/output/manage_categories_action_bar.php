@@ -88,7 +88,7 @@ class manage_categories_action_bar implements \renderable {
 
         if ($content) {
             $urlselect = new \url_select($content, $activeurl, null);
-            $urlselect->set_label(get_string('viewing'), ['class' => 'sr-only']);
+            $urlselect->set_label(get_string('viewing'), ['class' => 'visually-hidden']);
             return $urlselect->export_for_template($output);
         }
 
@@ -104,6 +104,9 @@ class manage_categories_action_bar implements \renderable {
     protected function get_category_select(\renderer_base $output): ?object {
         if (!$this->searchvalue && $this->viewmode === 'courses') {
             $categories = \core_course_category::make_categories_list(array('moodle/category:manage', 'moodle/course:create'));
+            if (!$categories) {
+                return null;
+            }
             $currentcat = $this->page->url->param('categoryid');
             foreach ($categories as $id => $cat) {
                 $url = new moodle_url($this->page->url, ['categoryid' => $id]);
@@ -113,8 +116,8 @@ class manage_categories_action_bar implements \renderable {
                 $options[$url->out()] = $cat;
             }
 
-            $select = new \url_select($options, $currenturl, null);
-            $select->set_label(get_string('category'), ['class' => 'sr-only']);
+            $select = new \url_select($options, $currenturl);
+            $select->set_label(get_string('category'), ['class' => 'visually-hidden']);
             $select->class .= ' text-truncate w-100';
             return $select->export_for_template($output);
         }

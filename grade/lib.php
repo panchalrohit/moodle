@@ -985,7 +985,8 @@ function print_grade_page_head(int $courseid, string $active_type, ?string $acti
         $renderer = $PAGE->get_renderer('core_grades');
         // If the user is viewing their own grade report, no need to show the "Message"
         // and "Add to contact" buttons in the user heading.
-        $showuserbuttons = $user->id != $USER->id;
+        $showuserbuttons = $user->id != $USER->id && !empty($CFG->messaging) &&
+            has_capability('moodle/site:sendmessage', $PAGE->context);
         $output = $renderer->user_heading($user, $courseid, $showuserbuttons);
     } else if (!empty($heading)) {
         $output = $OUTPUT->heading($heading);
@@ -1433,69 +1434,35 @@ class grade_structure {
     public $items;
 
     /**
-     * Returns icon of element
-     *
-     * @param array &$element An array representing an element in the grade_tree
-     * @param bool  $spacerifnone return spacer if no icon found
-     *
-     * @return string icon or spacer
      * @deprecated since Moodle 4.4 - please use {@see grade_helper::get_element_icon()}
-     * @todo MDL-79907 This will be deleted in Moodle 4.8.
      */
-    public function get_element_icon(&$element, $spacerifnone=false) {
-        debugging('The function get_element_icon() is deprecated, please use grade_helper::get_element_icon() instead.',
-            DEBUG_DEVELOPER);
-        return grade_helper::get_element_icon($element, $spacerifnone);
+    #[\core\attribute\deprecated('grade_helper::get_element_icon', since: '4.4', mdl: 'MDL-77326', final: true)]
+    public function get_element_icon(): void {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
-     * Returns the string that describes the type of the element.
-     *
-     * @param array $element An array representing an element in the grade_tree
-     * @return string The string that describes the type of the grade element
      * @deprecated since Moodle 4.4 - please use {@see grade_helper::get_element_type_string()}
-     * @todo MDL-79907 This will be deleted in Moodle 4.8.
      */
-    public function get_element_type_string(array $element): string {
-        debugging('The function get_element_type_string() is deprecated,' .
-            ' please use grade_helper::get_element_type_string() instead.',
-            DEBUG_DEVELOPER);
-        return grade_helper::get_element_type_string($element);
+    #[\core\attribute\deprecated('grade_helper::get_element_type_string', since: '4.4', mdl: 'MDL-77326', final: true)]
+    public function get_element_type_string(): void {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
-     * Returns name of element optionally with icon and link
-     *
-     * @param array &$element An array representing an element in the grade_tree
-     * @param bool  $withlink Whether or not this header has a link
-     * @param bool  $icon Whether or not to display an icon with this header
-     * @param bool  $spacerifnone return spacer if no icon found
-     * @param bool  $withdescription Show description if defined by this item.
-     * @param bool  $fulltotal If the item is a category total, returns $categoryname."total"
-     *                         instead of "Category total" or "Course total"
-     * @param moodle_url|null $sortlink Link to sort column.
-     *
-     * @return string header
      * @deprecated since Moodle 4.4 - please use {@see grade_helper::get_element_header()}
-     * @todo MDL-79907 This will be deleted in Moodle 4.8.
      */
-    public function get_element_header(array &$element, bool $withlink = false, bool $icon = true,
-            bool $spacerifnone = false, bool $withdescription = false, bool $fulltotal = false,
-            ?moodle_url $sortlink = null) {
-        debugging('The function get_element_header() is deprecated, please use grade_helper::get_element_header() instead.',
-            DEBUG_DEVELOPER);
-        return grade_helper::get_element_header($element, $withlink, $icon, $spacerifnone, $withdescription,
-            $fulltotal, $sortlink);
+    #[\core\attribute\deprecated('grade_helper::get_element_header', since: '4.4', mdl: 'MDL-77326', final: true)]
+    public function get_element_header(): void {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
      * @deprecated since Moodle 4.4 - please use {@see grade_helper::get_activity_link()}
-     * @todo MDL-79907 This will be deleted in Moodle 4.8.
      */
-    private function get_activity_link($element) {
-        debugging('The function get_activity_link() is deprecated, please use grade_helper::get_activity_link() instead.',
-            DEBUG_DEVELOPER);
-        return grade_helper::get_activity_link($element);
+    #[\core\attribute\deprecated('grade_helper::get_activity_link', since: '4.4', mdl: 'MDL-77326', final: true)]
+    private function get_activity_link(): void {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
@@ -1606,7 +1573,7 @@ class grade_structure {
      * @param grade_grade $grade A grade_grade object
      * @return string
      */
-    public function get_grade_action_menu(grade_grade $grade) : string {
+    public function get_grade_action_menu(grade_grade $grade): string {
         global $OUTPUT;
 
         $menuitems = [];
@@ -1620,7 +1587,7 @@ class grade_structure {
         if ($menuitems) {
             $menu = new action_menu($menuitems);
             $icon = $OUTPUT->pix_icon('i/moremenu', get_string('actions'));
-            $extraclasses = 'btn btn-link btn-icon icon-size-3 d-flex align-items-center justify-content-center';
+            $extraclasses = 'btn btn-link btn-icon d-flex no-caret';
             $menu->set_menu_trigger($icon, $extraclasses);
             $menu->set_menu_left();
 
@@ -2023,7 +1990,8 @@ class grade_structure {
                         }
 
                         $url = new moodle_url('/mod/' . $itemmodule . '/grade.php', $args);
-                        $title = get_string('advancedgrading', 'gradereport_grader', $itemmodule);
+                        $title = get_string('advancedgrading', 'gradereport_grader',
+                            get_string('pluginname', "mod_{$itemmodule}"));
                         $gpr->add_url_params($url);
                         return html_writer::link($url, $title,
                             ['class' => 'dropdown-item', 'aria-label' => $title, 'role' => 'menuitem']);
@@ -3416,29 +3384,11 @@ abstract class grade_helper {
     protected static $aggregationstrings = null;
 
     /**
-     * Cached grade tree plugin strings
-     * @var array
-     */
-    protected static $langstrings = [];
-
-    /**
-     * First checks the cached language strings, then returns match if found, or uses get_string()
-     * to get it from the DB, caches it then returns it.
-     *
      * @deprecated since 4.3
-     * @todo MDL-78780 This will be deleted in Moodle 4.7.
-     * @param string $strcode
-     * @param string|null $section Optional language section
-     * @return string
      */
-    public static function get_lang_string(string $strcode, ?string $section = null): string {
-        debugging('grade_helper::get_lang_string() is deprecated, please use' .
-            ' get_string() instead.', DEBUG_DEVELOPER);
-
-        if (empty(self::$langstrings[$strcode])) {
-            self::$langstrings[$strcode] = get_string($strcode, $section);
-        }
-        return self::$langstrings[$strcode];
+    #[\core\attribute\deprecated('get_string', since: '4.3', mdl: 'MDL-78561', final: true)]
+    public static function get_lang_string(): void {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
@@ -4087,21 +4037,15 @@ abstract class grade_helper {
     }
 
     /**
-     * Returns a link to grading page if grade.php exists in the module or link to activity
+     * Returns a link to activity
      *
      * @param array $element An array representing an element in the grade_tree
-     *
-     * @return string|null link to grading page|activity or null if not found
+     * @return moodle_url|null link to activity or null if not found
      */
-    public static function get_activity_link(array $element): ?string {
-        global $CFG;
-        /** @var array static cache of the grade.php file existence flags */
-        static $hasgradephp = [];
-
+    public static function get_activity_link(array $element): ?moodle_url {
         $itemtype = $element['object']->itemtype;
         $itemmodule = $element['object']->itemmodule;
         $iteminstance = $element['object']->iteminstance;
-        $itemnumber = $element['object']->itemnumber;
 
         // Links only for module items that have valid instance, module and are
         // called from grade_tree with valid modinfo.
@@ -4122,23 +4066,6 @@ abstract class grade_helper {
             return null;
         }
 
-        if (!array_key_exists($itemmodule, $hasgradephp)) {
-            if (file_exists($CFG->dirroot . '/mod/' . $itemmodule . '/grade.php')) {
-                $hasgradephp[$itemmodule] = true;
-            } else {
-                $hasgradephp[$itemmodule] = false;
-            }
-        }
-
-        // If module has grade.php, link to that, otherwise view.php.
-        if ($hasgradephp[$itemmodule]) {
-            $args = ['id' => $cm->id, 'itemnumber' => $itemnumber];
-            if (isset($element['userid'])) {
-                $args['userid'] = $element['userid'];
-            }
-            return new moodle_url('/mod/' . $itemmodule . '/grade.php', $args);
-        } else {
-            return new moodle_url('/mod/' . $itemmodule . '/view.php', ['id' => $cm->id]);
-        }
+        return new moodle_url('/mod/' . $itemmodule . '/view.php', ['id' => $cm->id]);
     }
 }

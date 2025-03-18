@@ -26,6 +26,7 @@ namespace core\task;
 
 use core\lock\lock;
 use core\lock\lock_factory;
+use core_shutdown_manager;
 
 define('CORE_TASK_TASKS_FILENAME', 'db/tasks.php');
 /**
@@ -56,19 +57,38 @@ class manager {
     const ADHOC_TASK_FAILED_RETENTION = 4 * WEEKSECS;
 
     /**
+     * @var ?task_base $runningtask Used to tell what is the current running task in this process.
+     */
+    public static ?task_base $runningtask = null;
+
+    /**
+     * @var bool Used to tell if the manager's shutdown callback has been registered.
+     */
+    public static bool $registeredshutdownhandler = false;
+
+    /**
      * @var array A cached queue of adhoc tasks
      */
-    public static $miniqueue;
+    protected static array $miniqueue = [];
 
     /**
      * @var int The last recorded number of unique adhoc tasks.
      */
-    public static $numtasks;
+    protected static int $numtasks = 0;
 
     /**
-     * @var string Used to determine if the adhoc task queue is distributing or filling capacity.
+     * @var null|int Used to determine if the adhoc task queue is distributing or filling capacity.
      */
-    public static $mode;
+    protected static ?int $mode = null;
+
+    /**
+     * Reset the state of the task manager.
+     */
+    public static function reset_state(): void {
+        self::$miniqueue = [];
+        self::$numtasks = 0;
+        self::$mode = null;
+    }
 
     /**
      * Given a component name, will load the list of tasks in the db/tasks.php file for that component.
@@ -174,7 +194,7 @@ class manager {
      * @param adhoc_task $task
      * @return \stdClass|false
      */
-    protected static function get_queued_adhoc_task_record($task) {
+    public static function get_queued_adhoc_task_record($task) {
         global $DB;
 
         $record = self::record_from_adhoc_task($task);
@@ -198,7 +218,7 @@ class manager {
      * @param \core\task\adhoc_task $task - The new adhoc task information to store.
      * @since Moodle 3.7
      */
-    public static function reschedule_or_queue_adhoc_task(adhoc_task $task) : void {
+    public static function reschedule_or_queue_adhoc_task(adhoc_task $task): void {
         global $DB;
 
         if ($existingrecord = self::get_queued_adhoc_task_record($task)) {
@@ -224,6 +244,13 @@ class manager {
     public static function queue_adhoc_task(adhoc_task $task, $checkforexisting = false) {
         global $DB;
 
+        $clock = \core\di::get(\core\clock::class);
+
+        // Don't queue tasks for deprecated components.
+        if (self::task_component_is_deprecated($task)) {
+            return false;
+        }
+
         if ($userid = $task->get_userid()) {
             // User found. Check that they are suitable.
             \core_user::require_active_user(\core_user::get_user($userid, '*', MUST_EXIST), true, true);
@@ -232,11 +259,13 @@ class manager {
         $record = self::record_from_adhoc_task($task);
         // Schedule it immediately if nextruntime not explicitly set.
         if (!$task->get_next_run_time()) {
-            $record->nextruntime = time() - 1;
+            $record->nextruntime = $clock->time() - 1;
         }
 
         // Check if the task is allowed to be retried or not.
-        $record->attemptsavailable = $task->retry_until_success() ? null : 1;
+        $record->attemptsavailable = $task->retry_until_success() ? $record->attemptsavailable : 1;
+        // Set the time the task was created.
+        $record->timecreated = $clock->time();
 
         // Check if the same task is already scheduled.
         if ($checkforexisting && self::task_is_scheduled($task)) {
@@ -282,7 +311,6 @@ class manager {
         $record = new \stdClass();
         $record->classname = self::get_canonical_class_name($task);
         $record->component = $task->get_component();
-        $record->blocking = $task->is_blocking();
         $record->customised = $task->is_customised();
         $record->lastruntime = $task->get_last_run_time();
         $record->nextruntime = $task->get_next_run_time();
@@ -311,12 +339,10 @@ class manager {
         $record->classname = self::get_canonical_class_name($task);
         $record->id = $task->get_id();
         $record->component = $task->get_component();
-        $record->blocking = $task->is_blocking();
         $record->nextruntime = $task->get_next_run_time();
         $record->faildelay = $task->get_fail_delay();
         $record->customdata = $task->get_custom_data_as_string();
         $record->userid = $task->get_userid();
-        $record->timecreated = time();
         $record->timestarted = $task->get_timestarted();
         $record->hostname = $task->get_hostname();
         $record->pid = $task->get_pid();
@@ -347,7 +373,6 @@ class manager {
         if (isset($record->component)) {
             $task->set_component($record->component);
         }
-        $task->set_blocking(!empty($record->blocking));
         if (isset($record->faildelay)) {
             $task->set_fail_delay($record->faildelay);
         }
@@ -409,7 +434,6 @@ class manager {
         if (isset($record->component)) {
             $task->set_component($record->component);
         }
-        $task->set_blocking(!empty($record->blocking));
         if (isset($record->minute)) {
             $task->set_minute($record->minute, $expandr);
         }
@@ -490,11 +514,17 @@ class manager {
      * This function load the adhoc tasks for a given classname.
      *
      * @param string $classname
-     * @param bool $failedonly
-     * @param bool $skiprunning do not return tasks that are in the running state
+     * @param bool $failedonly Return only failed tasks
+     * @param bool $skiprunning Do not return tasks that are in the running state
+     * @param bool $dueonly Return only tasks that are due to run (nextruntime < now)
      * @return array
      */
-    public static function get_adhoc_tasks(string $classname, bool $failedonly = false, bool $skiprunning = false): array {
+    public static function get_adhoc_tasks(
+        string $classname,
+        bool $failedonly = false,
+        bool $skiprunning = false,
+        bool $dueonly = false
+    ): array {
         global $DB;
 
         $conds[] = 'classname = ?';
@@ -502,6 +532,8 @@ class manager {
 
         if ($failedonly) {
             $conds[] = 'faildelay > 0';
+        } else if ($dueonly) {
+            $conds[] = 'faildelay = 0';
         }
         if ($skiprunning) {
             $conds[] = 'timestarted IS NULL';
@@ -526,7 +558,9 @@ class manager {
     public static function get_adhoc_tasks_summary(): array {
         global $DB;
 
-        $now = time();
+        $clock = \core\di::get(\core\clock::class);
+
+        $now = $clock->time();
         $records = $DB->get_records('task_adhoc');
         $summary = [];
         foreach ($records as $r) {
@@ -615,6 +649,12 @@ class manager {
 
         foreach ($records as $record) {
             $task = self::scheduled_task_from_record($record);
+
+            // Tasks belonging to deprecated plugin types are excluded.
+            if (self::task_component_is_deprecated($task)) {
+                continue;
+            }
+
             // Safety check in case the task in the DB does not match a real class (maybe something was uninstalled).
             if ($task) {
                 $tasks[] = $task;
@@ -647,83 +687,11 @@ class manager {
     }
 
     /**
-     * Ensure quality of service for the ad hoc task queue.
-     *
-     * This reshuffles the adhoc tasks queue to balance by type to ensure a
-     * level of quality of service per type, while still maintaining the
-     * relative order of tasks queued by timestamp.
-     *
-     * @param array $records array of task records
-     * @param array $records array of same task records shuffled
-     * @deprecated since Moodle 4.1 MDL-67648 - please do not use this method anymore.
-     * @todo MDL-74843 This method will be deleted in Moodle 4.5
-     * @see \core\task\manager::get_next_adhoc_task
+     * @deprecated since Moodle 4.1 MDL-67648
      */
-    public static function ensure_adhoc_task_qos(array $records): array {
-        debugging('The method \core\task\manager::ensure_adhoc_task_qos is deprecated.
-             Please use \core\task\manager::get_next_adhoc_task instead.', DEBUG_DEVELOPER);
-
-        $count = count($records);
-        if ($count == 0) {
-            return $records;
-        }
-
-        $queues = []; // This holds a queue for each type of adhoc task.
-        $limits = []; // The relative limits of each type of task.
-        $limittotal = 0;
-
-        // Split the single queue up into queues per type.
-        foreach ($records as $record) {
-            $type = $record->classname;
-            if (!array_key_exists($type, $queues)) {
-                $queues[$type] = [];
-            }
-            if (!array_key_exists($type, $limits)) {
-                $limits[$type] = 1;
-                $limittotal += 1;
-            }
-            $queues[$type][] = $record;
-        }
-
-        $qos = []; // Our new queue with ensured quality of service.
-        $seed = $count % $limittotal; // Which task queue to shuffle from first?
-
-        $move = 1; // How many tasks to shuffle at a time.
-        do {
-            $shuffled = 0;
-
-            // Now cycle through task type queues and interleaving the tasks
-            // back into a single queue.
-            foreach ($limits as $type => $limit) {
-
-                // Just interleaving the queue is not enough, because after
-                // any task is processed the whole queue is rebuilt again. So
-                // we need to deterministically start on different types of
-                // tasks so that *on average* we rotate through each type of task.
-                //
-                // We achieve this by using a $seed to start moving tasks off a
-                // different queue each time. The seed is based on the task count
-                // modulo the number of types of tasks on the queue. As we count
-                // down this naturally cycles through each type of record.
-                if ($seed < 1) {
-                    $shuffled = 1;
-                    $seed += 1;
-                    continue;
-                }
-                $tasks = array_splice($queues[$type], 0, $move);
-                $qos = array_merge($qos, $tasks);
-
-                // Stop if we didn't move any tasks onto the main queue.
-                $shuffled += count($tasks);
-            }
-            // Generally the only tasks that matter are those that are near the start so
-            // after we have shuffled the first few 1 by 1, start shuffling larger groups.
-            if (count($qos) >= (4 * count($limits))) {
-                $move *= 2;
-            }
-        } while ($shuffled > 0);
-
-        return $qos;
+    #[\core\attribute\deprecated('\core\task\manager::get_next_adhoc_task()', since: '4.1', mdl: 'MDL-67648', final: true)]
+    public static function ensure_adhoc_task_qos(): void {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
@@ -862,8 +830,11 @@ class manager {
 
             if ($lock = $cronlockfactory->get_lock('adhoc_' . $record->id, 0)) {
 
-                // Safety check, see if the task has been already processed by another cron run.
-                $record = $DB->get_record('task_adhoc', array('id' => $record->id));
+                // Safety check, see if the task has already been processed by another cron run (or attempted and failed).
+                // If another cron run attempted to process the task and failed, nextruntime will be in the future.
+                $record = $DB->get_record_select('task_adhoc',
+                    "id = :id AND nextruntime < :timestart",
+                    ['id' => $record->id, 'timestart' => $timestart]);
                 if (!$record) {
                     $lock->release();
                     unset(self::$miniqueue[$taskid]);
@@ -1003,6 +974,17 @@ class manager {
     }
 
     /**
+     * This function will delete an adhoc task by id. The task will be removed
+     * from the database.
+     *
+     * @param int $taskid
+     */
+    public static function delete_adhoc_task(int $taskid): void {
+        global $DB;
+        $DB->delete_records('task_adhoc', ['id' => $taskid]);
+    }
+
+    /**
      * This function will set locks on the task.
      *
      * @param adhoc_task    $task
@@ -1019,11 +1001,23 @@ class manager {
         }
 
         $task->set_lock($lock);
-        if (!$task->is_blocking()) {
-            $cronlock->release();
-        } else {
-            $task->set_cron_lock($cronlock);
+        $cronlock->release();
+    }
+
+    /**
+     * Helper to check whether a task's component is deprecated.
+     *
+     * @param task_base $task the task instance
+     * @return bool true if deprecated, false otherwise.
+     */
+    private static function task_component_is_deprecated(task_base $task): bool {
+        // Only supports plugin type deprecation. Info will be null for other, non-plugin components.
+        if ($info = \core_plugin_manager::instance()->get_plugin_info($task->get_component())) {
+            if ($info->is_deprecated() || $info->is_deleted()) {
+                return true;
+            }
         }
+        return false;
     }
 
     /**
@@ -1051,8 +1045,8 @@ class manager {
 
             $task = self::scheduled_task_from_record($record);
             // Safety check in case the task in the DB does not match a real class (maybe something was uninstalled).
-            // Also check to see if task is disabled or enabled after applying overrides.
-            if (!$task || $task->get_disabled()) {
+            // Also check to see if task is disabled or enabled after applying overrides, or if the plugintype is deprecated.
+            if (!$task || $task->get_disabled() || self::task_component_is_deprecated($task)) {
                 continue;
             }
 
@@ -1086,16 +1080,48 @@ class manager {
                     throw new \moodle_exception('locktimeout');
                 }
 
-                if (!$task->is_blocking()) {
-                    $cronlock->release();
-                } else {
-                    $task->set_cron_lock($cronlock);
-                }
+                $cronlock->release();
                 return $task;
             }
         }
 
         return null;
+    }
+
+    /**
+     * This function will fail the currently running task, if there is one.
+     */
+    public static function fail_running_task(): void {
+        $runningtask = self::$runningtask;
+
+        if ($runningtask === null) {
+            return;
+        }
+
+        if ($runningtask instanceof scheduled_task) {
+            self::scheduled_task_failed($runningtask);
+            return;
+        }
+
+        if ($runningtask instanceof adhoc_task) {
+            self::adhoc_task_failed($runningtask);
+            return;
+        }
+    }
+
+    /**
+     * This function set's the $runningtask variable and ensures that the shutdown handler is registered.
+     * @param task_base $task
+     */
+    private static function task_starting(task_base $task): void {
+        self::$runningtask = $task;
+
+        // Add \core\task\manager::fail_running_task to shutdown manager, so we can ensure running tasks fail on shutdown.
+        if (!self::$registeredshutdownhandler) {
+            core_shutdown_manager::register_function('\core\task\manager::fail_running_task');
+
+            self::$registeredshutdownhandler = true;
+        }
     }
 
     /**
@@ -1105,6 +1131,9 @@ class manager {
      */
     public static function adhoc_task_failed(adhoc_task $task) {
         global $DB;
+
+        $clock = \core\di::get(\core\clock::class);
+
         // Finalise the log output.
         logmanager::finalise_log(true);
 
@@ -1118,27 +1147,32 @@ class manager {
         }
 
         // Max of 24 hour delay.
-        if ($delay > 86400) {
+        if ($delay >= 86400) {
             $delay = 86400;
+
+            // Dispatch hook when max fail delay has reached.
+            $hook = new \core\hook\task\after_failed_task_max_delay(
+                task: $task,
+            );
+            \core\di::get(\core\hook\manager::class)->dispatch($hook);
         }
 
         // Reschedule and then release the locks.
         $task->set_timestarted();
         $task->set_hostname();
         $task->set_pid();
-        $task->set_next_run_time(time() + $delay);
+        $task->set_next_run_time($clock->time() + $delay);
         $task->set_fail_delay($delay);
-        if (!$task->retry_until_success() && $task->get_attempts_available() > 0) {
+        if ($task->get_attempts_available() > 0) {
             $task->set_attempts_available($task->get_attempts_available() - 1);
         }
         $record = self::record_from_adhoc_task($task);
         $DB->update_record('task_adhoc', $record);
 
         $task->release_concurrency_lock();
-        if ($task->is_blocking()) {
-            $task->get_cron_lock()->release();
-        }
         $task->get_lock()->release();
+
+        self::$runningtask = null;
     }
 
     /**
@@ -1155,7 +1189,8 @@ class manager {
         $hostname = (string)gethostname();
 
         if (empty($time)) {
-            $time = time();
+            $clock = \core\di::get(\core\clock::class);
+            $time = $clock->time();
         }
 
         $task->set_timestarted($time);
@@ -1163,7 +1198,16 @@ class manager {
         $task->set_pid($pid);
 
         $record = self::record_from_adhoc_task($task);
+
+        // If this is the first time the task has been started, then set the first starting time.
+        $firststartingtime = $DB->get_field('task_adhoc', 'firststartingtime', ['id' => $record->id]);
+        if (is_null($firststartingtime)) {
+            $record->firststartingtime = $time;
+        }
+
         $DB->update_record('task_adhoc', $record);
+
+        self::task_starting($task);
     }
 
     /**
@@ -1185,10 +1229,9 @@ class manager {
 
         // Release the locks.
         $task->release_concurrency_lock();
-        if ($task->is_blocking()) {
-            $task->get_cron_lock()->release();
-        }
         $task->get_lock()->release();
+
+        self::$runningtask = null;
     }
 
     /**
@@ -1198,6 +1241,9 @@ class manager {
      */
     public static function scheduled_task_failed(scheduled_task $task) {
         global $DB;
+
+        $clock = \core\di::get(\core\clock::class);
+
         // Finalise the log output.
         logmanager::finalise_log(true);
 
@@ -1211,8 +1257,14 @@ class manager {
         }
 
         // Max of 24 hour delay.
-        if ($delay > 86400) {
+        if ($delay >= 86400) {
             $delay = 86400;
+
+            // Dispatch hook when max fail delay has reached.
+            $hook = new \core\hook\task\after_failed_task_max_delay(
+                task: $task,
+            );
+            \core\di::get(\core\hook\manager::class)->dispatch($hook);
         }
 
         $task->set_timestarted();
@@ -1222,17 +1274,16 @@ class manager {
         $classname = self::get_canonical_class_name($task);
 
         $record = $DB->get_record('task_scheduled', array('classname' => $classname));
-        $record->nextruntime = time() + $delay;
+        $record->nextruntime = $clock->time() + $delay;
         $record->faildelay = $delay;
         $record->timestarted = null;
         $record->hostname = null;
         $record->pid = null;
         $DB->update_record('task_scheduled', $record);
 
-        if ($task->is_blocking()) {
-            $task->get_cron_lock()->release();
-        }
         $task->get_lock()->release();
+
+        self::$runningtask = null;
     }
 
     /**
@@ -1261,11 +1312,14 @@ class manager {
      */
     public static function scheduled_task_starting(scheduled_task $task, int $time = 0) {
         global $DB;
+
+        $clock = \core\di::get(\core\clock::class);
+
         $pid = (int)getmypid();
         $hostname = (string)gethostname();
 
         if (!$time) {
-            $time = time();
+            $time = $clock->time();
         }
 
         $task->set_timestarted($time);
@@ -1278,6 +1332,8 @@ class manager {
         $record->hostname = $hostname;
         $record->pid = $pid;
         $DB->update_record('task_scheduled', $record);
+
+        self::task_starting($task);
     }
 
     /**
@@ -1288,6 +1344,8 @@ class manager {
     public static function scheduled_task_complete(scheduled_task $task) {
         global $DB;
 
+        $clock = \core\di::get(\core\clock::class);
+
         // Finalise the log output.
         logmanager::finalise_log();
         $task->set_timestarted();
@@ -1297,7 +1355,7 @@ class manager {
         $classname = self::get_canonical_class_name($task);
         $record = $DB->get_record('task_scheduled', array('classname' => $classname));
         if ($record) {
-            $record->lastruntime = time();
+            $record->lastruntime = $clock->time();
             $record->faildelay = 0;
             $record->nextruntime = $task->get_next_scheduled_time();
             $record->timestarted = null;
@@ -1308,10 +1366,9 @@ class manager {
         }
 
         // Reschedule and then release the locks.
-        if ($task->is_blocking()) {
-            $task->get_cron_lock()->release();
-        }
         $task->get_lock()->release();
+
+        self::$runningtask = null;
     }
 
     /**
@@ -1323,10 +1380,13 @@ class manager {
      */
     public static function get_running_tasks($sort = ''): array {
         global $DB;
+
+        $clock = \core\di::get(\core\clock::class);
+
         if (empty($sort)) {
             $sort = 'timestarted ASC, classname ASC';
         }
-        $params = ['now1' => time(), 'now2' => time()];
+        $params = ['now1' => $clock->time(), 'now2' => $clock->time()];
 
         $sql = "SELECT subquery.*
                   FROM (SELECT " . $DB->sql_concat("'s'", 'ts.id') . " as uniqueid,
@@ -1361,11 +1421,13 @@ class manager {
     public static function cleanup_metadata() {
         global $DB;
 
+        $clock = \core\di::get(\core\clock::class);
+
         $cronlockfactory = \core\lock\lock_config::get_lock_factory('cron');
         $runningtasks = self::get_running_tasks();
 
         foreach ($runningtasks as $runningtask) {
-            if ($runningtask->timestarted > time() - HOURSECS) {
+            if ($runningtask->timestarted > $clock->time() - HOURSECS) {
                 continue;
             }
 
@@ -1427,15 +1489,18 @@ class manager {
      */
     public static function clear_static_caches() {
         global $DB;
+
+        $clock = \core\di::get(\core\clock::class);
+
         // Do not use get/set config here because the caches cannot be relied on.
         $record = $DB->get_record('config', array('name'=>'scheduledtaskreset'));
         if ($record) {
-            $record->value = time();
+            $record->value = $clock->time();
             $DB->update_record('config', $record);
         } else {
             $record = new \stdClass();
             $record->name = 'scheduledtaskreset';
-            $record->value = time();
+            $record->value = $clock->time();
             $DB->insert_record('config', $record);
         }
     }
@@ -1497,7 +1562,7 @@ class manager {
         global $CFG;
 
         if (!empty($CFG->pathtophp) && is_executable(trim($CFG->pathtophp))) {
-            return $CFG->pathtophp;
+            return trim($CFG->pathtophp);
         }
 
         return false;
@@ -1508,7 +1573,7 @@ class manager {
      *
      * @return bool
      */
-    public static function is_runnable():bool {
+    public static function is_runnable(): bool {
         return self::find_php_cli_path() !== false;
     }
 
@@ -1561,7 +1626,7 @@ class manager {
             2 => ['pipe', 'w'], // STDERR.
         ];
         flush();
-        $process = proc_open($command, $descriptorspec, $pipes, realpath('./'), []);
+        $process = proc_open($command, $descriptorspec, $pipes, realpath('./'));
         if (is_resource($process)) {
             while ($s = fgets($pipes[1])) {
                 mtrace($s, '');
@@ -1735,12 +1800,15 @@ class manager {
      */
     public static function clean_failed_adhoc_tasks(): void {
         global $CFG, $DB;
+
+        $clock = \core\di::get(\core\clock::class);
+
         $difftime = !empty($CFG->task_adhoc_failed_retention) ?
             $CFG->task_adhoc_failed_retention : static::ADHOC_TASK_FAILED_RETENTION;
         $DB->delete_records_select(
             table: 'task_adhoc',
-            select: 'attemptsavailable = 0 AND timestarted < :time',
-            params: ['time' => time() - $difftime],
+            select: 'attemptsavailable = 0 AND firststartingtime < :time',
+            params: ['time' => $clock->time() - $difftime],
         );
     }
 }

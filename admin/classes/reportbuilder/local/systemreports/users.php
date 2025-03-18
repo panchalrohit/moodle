@@ -28,6 +28,7 @@ use core_reportbuilder\local\report\action;
 use core_reportbuilder\local\report\filter;
 use core_reportbuilder\system_report;
 use core_role\reportbuilder\local\entities\role;
+use core_user\fields;
 use lang_string;
 use moodle_url;
 use pix_icon;
@@ -62,8 +63,16 @@ class users extends system_report {
         $this->add_entity($entityuser);
 
         // Any columns required by actions should be defined here to ensure they're always available.
+        $fullnamefields = array_map(fn($field) => "{$entityuseralias}.{$field}", fields::get_name_fields());
         $this->add_base_fields("{$entityuseralias}.id, {$entityuseralias}.confirmed, {$entityuseralias}.mnethostid,
-            {$entityuseralias}.suspended, {$entityuseralias}.username");
+            {$entityuseralias}.suspended, {$entityuseralias}.username, " . implode(', ', $fullnamefields));
+
+        if ($this->get_parameter('withcheckboxes', false, PARAM_BOOL)) {
+            $canviewfullnames = has_capability('moodle/site:viewfullnames', \context_system::instance());
+            $this->set_checkbox_toggleall(static function(\stdClass $row) use ($canviewfullnames): array {
+                return [$row->id, fullname($row, $canviewfullnames)];
+            });
+        }
 
         $paramguest = database::generate_param_name();
         $this->add_base_condition_sql("{$entityuseralias}.deleted <> 1 AND {$entityuseralias}.id <> :{$paramguest}",
@@ -104,7 +113,7 @@ class users extends system_report {
         $this->add_actions();
 
         // Set if report can be downloaded.
-        $this->set_downloadable(false);
+        $this->set_downloadable(true);
     }
 
     /**
@@ -126,17 +135,15 @@ class users extends system_report {
         $entityuser = $this->get_entity('user');
         $entityuseralias = $entityuser->get_table_alias('user');
 
-        $this->add_column($entityuser->get_column('fullnamewithlink'));
+        $this->add_column($entityuser->get_column('fullnamewithpicturelink'));
 
         // Include identity field columns.
-        $identitycolumns = $entityuser->get_identity_columns($this->get_context(), ['city', 'country', 'lastaccesstime']);
+        $identitycolumns = $entityuser->get_identity_columns($this->get_context());
         foreach ($identitycolumns as $identitycolumn) {
             $this->add_column($identitycolumn);
         }
 
-        // These columns are always shown in the users list.
-        $this->add_column($entityuser->get_column('city'));
-        $this->add_column($entityuser->get_column('country'));
+        // Add "Last access" column.
         $this->add_column(($entityuser->get_column('lastaccess'))
             ->set_callback(static function ($value, \stdClass $row): string {
                 if ($row->lastaccess) {
@@ -146,23 +153,23 @@ class users extends system_report {
             })
         );
 
-        if ($column = $this->get_column('user:fullnamewithlink')) {
+        if ($column = $this->get_column('user:fullnamewithpicturelink')) {
             $column
                 ->add_fields("{$entityuseralias}.suspended, {$entityuseralias}.confirmed")
                 ->add_callback(static function(string $fullname, \stdClass $row): string {
                     if ($row->suspended) {
                         $fullname .= ' ' . \html_writer::tag('span', get_string('suspended', 'moodle'),
-                            ['class' => 'badge badge-secondary ml-1']);
+                            ['class' => 'badge badge-secondary ms-1']);
                     }
                     if (!$row->confirmed) {
                         $fullname .= ' ' . \html_writer::tag('span', get_string('confirmationpending', 'admin'),
-                            ['class' => 'badge badge-danger ml-1']);
+                            ['class' => 'badge badge-danger ms-1']);
                     }
                     return $fullname;
                 });
         }
 
-        $this->set_initial_sort_column('user:fullnamewithlink', SORT_ASC);
+        $this->set_initial_sort_column('user:fullnamewithpicturelink', SORT_ASC);
         $this->set_default_no_results_notice(new lang_string('nousersfound', 'moodle'));
     }
 
@@ -177,6 +184,7 @@ class users extends system_report {
         $entityuseralias = $entityuser->get_table_alias('user');
 
         $filters = [
+            'user:fullname',
             'user:firstname',
             'user:lastname',
             'user:username',
@@ -310,9 +318,14 @@ class users extends system_report {
             false,
             new lang_string('denyaccess', 'mnet'),
         ))->add_callback(static function(\stdclass $row) use ($DB, $contextsystem): bool {
-            $acl = $DB->get_record('mnet_sso_access_control', ['username' => $row->username, 'mnet_host_id' => $row->mnethostid]);
+            if (!$accessctrl = $DB->get_field(table: 'mnet_sso_access_control', return: 'accessctrl',
+                conditions: ['username' => $row->username, 'mnet_host_id' => $row->mnethostid]
+            )) {
+                $accessctrl = 'allow';
+            }
+
             return has_capability('moodle/user:update', $contextsystem) && !$row->suspended &&
-                is_mnet_remote_user($row) && $acl->accessctrl == 'allow';
+                is_mnet_remote_user($row) && $accessctrl == 'allow';
         }));
 
         // Action to unsuspend users (mnet remote users).
@@ -323,19 +336,46 @@ class users extends system_report {
             false,
             new lang_string('allowaccess', 'mnet'),
         ))->add_callback(static function(\stdclass $row) use ($DB, $contextsystem): bool {
-            $acl = $DB->get_record('mnet_sso_access_control', ['username' => $row->username, 'mnet_host_id' => $row->mnethostid]);
+            if (!$accessctrl = $DB->get_field(table: 'mnet_sso_access_control', return: 'accessctrl',
+                conditions: ['username' => $row->username, 'mnet_host_id' => $row->mnethostid]
+            )) {
+                $accessctrl = 'allow';
+            }
+
             return has_capability('moodle/user:update', $contextsystem) && !$row->suspended &&
-                is_mnet_remote_user($row) && $acl->accessctrl == 'deny';
+                is_mnet_remote_user($row) && $accessctrl == 'deny';
         }));
 
         // Action to delete users.
         $this->add_action((new action(
             new moodle_url('/admin/user.php', ['delete' => ':id', 'sesskey' => sesskey()]),
             new pix_icon('t/delete', ''),
-            ['class' => 'text-danger'],
+            [
+                'class' => 'text-danger',
+                'data-modal' => 'confirmation',
+                'data-modal-title-str' => json_encode(['deleteuser', 'admin']),
+                'data-modal-content-str' => ':deletestr',
+                'data-modal-yes-button-str' => json_encode(['delete', 'core']),
+                'data-modal-destination' => ':deleteurl',
+
+            ],
             false,
             new lang_string('delete', 'moodle'),
         ))->add_callback(static function(\stdclass $row) use ($USER, $contextsystem): bool {
+
+            // Populate deletion modal attributes.
+            $row->deletestr = json_encode([
+                'deletecheckfull',
+                'moodle',
+                fullname($row, true),
+            ]);
+
+            $row->deleteurl = (new moodle_url('/admin/user.php', [
+                'delete' => $row->id,
+                'confirm' => md5($row->id),
+                'sesskey' => sesskey(),
+            ]))->out(false);
+
             return has_capability('moodle/user:delete', $contextsystem) &&
                 !is_mnet_remote_user($row) && $row->id != $USER->id && !is_siteadmin($row);
         }));

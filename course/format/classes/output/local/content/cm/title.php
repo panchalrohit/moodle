@@ -51,7 +51,7 @@ class title extends inplace_editable implements named_templatable, renderable {
     protected $format;
 
     /** @var section_info the section object */
-    private $section;
+    protected $section;
 
     /** @var cm_info the course module instance */
     protected $mod;
@@ -138,7 +138,7 @@ class title extends inplace_editable implements named_templatable, renderable {
      * Return the title template data to be used inside the inplace editable.
      *
      */
-    protected function get_title_displayvalue (): string {
+    protected function get_title_displayvalue(): string {
         global $PAGE;
 
         // Inplace editable uses core renderer by default. However, course elements require

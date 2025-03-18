@@ -22,25 +22,26 @@ Feature: Tiny editor accessibility checker
   Scenario: Perform accessibility validation on images with no alt attribute
     Given I log in as "admin"
     And I open my profile in edit mode
-    And I set the field "Description" to "<p>Some plain text</p><img src='/broken-image' width='1' height='1'/><p>Some more text</p>"
+    And I set the field "Description" to "<p>Some plain text</p><img src='http://download.moodle.org/unittest/test.jpg' width='1' height='1'/><p>Some more text</p>"
     And I click on the "Tools > Accessibility checker" menu item for the "Description" TinyMCE editor
     And I should see "Images require alternative text." in the "Accessibility checker" "dialogue"
     And I click on "View" "link" in the "Accessibility checker" "dialogue"
     And I click on the "Image" button for the "Description" TinyMCE editor
-    And the field "URL" matches value "/broken-image"
-    And I set the field "Describe this image for someone who cannot see it" to "No more warning!"
-    And I press "Save image"
+    And I wait "1" seconds
+    And I click on "This image is decorative only" "checkbox"
+    And I set the field "How would you describe this image to someone who can't see it?" to "No more warning!"
+    And I press "Save"
     And I click on the "Tools > Accessibility checker" menu item for the "Description" TinyMCE editor
     And I should see "Congratulations, no accessibility issues found!" in the "Accessibility checker" "dialogue"
     And I click on "Close" "button" in the "Accessibility checker" "dialogue"
     And I select the "img" element in position "2" of the "Description" TinyMCE editor
     And I click on the "Image" button for the "Description" TinyMCE editor
-    And I set the field "URL" to "/decorative-image.png"
-    And I set the field "Describe this image for someone who cannot see it" to ""
-    And I set the field "Width" to "1"
-    And I set the field "Height" to "1"
+    And I set the field "URL" to "http://download.moodle.org/unittest/test.jpg"
+    And I click on "Add" "button" in the "Insert image" "dialogue"
+    And I wait "1" seconds
+    And I set the field "How would you describe this image to someone who can't see it?" to ""
     And I click on "This image is decorative only" "checkbox"
-    When I press "Save image"
+    When I press "Save"
     And I click on the "Tools > Accessibility checker" menu item for the "Description" TinyMCE editor
     Then I should see "Congratulations, no accessibility issues found!" in the "Accessibility checker" "dialogue"
 
@@ -51,3 +52,39 @@ Feature: Tiny editor accessibility checker
     When I set the field "Description" to "<p>Some plain text</p><img src='/broken-image' width='1' height='1' class='behat-tinymce-placeholder'/><p>Some more text</p>"
     And I click on the "Tools > Accessibility checker" menu item for the "Description" TinyMCE editor
     Then I should see "Congratulations, no accessibility issues found!" in the "Accessibility checker" "dialogue"
+
+  @javascript
+  Scenario: Permissions can be configured to control access to accessibility checker
+    Given the following "users" exist:
+      | username | firstname | lastname | email                |
+      | teacher1 | Teacher   | 1        | teacher1@example.com |
+      | teacher2 | Teacher   | 2        | teacher2@example.com |
+    And the following "courses" exist:
+      | fullname | shortname | format |
+      | Course 1 | C1        | topics |
+    And the following "roles" exist:
+      | name           | shortname | description         | archetype      |
+      | Custom teacher | custom1   | Limited permissions | editingteacher |
+    And the following "course enrolments" exist:
+      | user     | course | role           |
+      | teacher1 | C1     | editingteacher |
+      | teacher2 | C1     | custom1        |
+    And the following "activity" exists:
+      | activity | assign          |
+      | course   | C1              |
+      | name     | Test assignment |
+    And the following "permission overrides" exist:
+      | capability                    | permission | role    | contextlevel | reference |
+      | tiny/accessibilitychecker:use | Prohibit   | custom1 | Course       | C1        |
+    # Check plugin access as a role with prohibited permissions.
+    And I log in as "teacher2"
+    And I am on the "Test assignment" Activity page
+    And I navigate to "Settings" in current page administration
+    When I click on the "Tools" menu item for the "Activity instructions" TinyMCE editor
+    Then I should not see "Accessibility checker"
+    # Check plugin access as a role with allowed permissions.
+    And I log in as "teacher1"
+    And I am on the "Test assignment" Activity page
+    And I navigate to "Settings" in current page administration
+    And I click on the "Tools" menu item for the "Activity instructions" TinyMCE editor
+    And I should see "Accessibility checker"

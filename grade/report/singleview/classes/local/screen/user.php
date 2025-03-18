@@ -24,6 +24,7 @@
 
 namespace gradereport_singleview\local\screen;
 
+use context_course;
 use grade_seq;
 use gradereport_singleview;
 use moodle_url;
@@ -171,8 +172,12 @@ class user extends tablelike implements selectable_items {
         $grade = $this->fetch_grade_or_default($item, $this->item->id);
         $gradestatus = '';
 
+        // Show hidden icon if the grade is hidden and the user has permission to view hidden grades.
+        $showhiddenicon = ($grade->is_hidden() || $item->is_hidden()) &&
+            has_capability('moodle/grade:viewhidden', context_course::instance($item->courseid));
+
         $context = [
-            'hidden' => $grade->is_hidden(),
+            'hidden' => $showhiddenicon,
             'locked' => $grade->is_locked(),
         ];
 
@@ -195,17 +200,12 @@ class user extends tablelike implements selectable_items {
 
         $formatteddefinition = $this->format_definition($grade);
 
-        $itemicon = html_writer::div($this->format_icon($item), 'mr-1');
+        $itemicon = html_writer::div($this->format_icon($item), 'me-1');
         $itemtype = \html_writer::span(\grade_helper::get_element_type_string($gradetreeitem),
             'd-block text-uppercase small dimmed_text');
-        // If a behat test site is running avoid outputting the information about the type of the grade item.
-        // This additional information currently causes issues in behat particularly with the existing xpath used to
-        // interact with table elements.
-        if (!defined('BEHAT_SITE_RUNNING')) {
-            $itemcontent = html_writer::div($itemtype . $itemname);
-        } else {
-            $itemcontent = html_writer::div($itemname);
-        }
+
+        $itemtitle = html_writer::div($itemname, 'rowtitle');
+        $itemcontent = html_writer::div($itemtype . $itemtitle);
 
         $line = [
             html_writer::div($itemicon . $itemcontent, "{$type} d-flex align-items-center"),
@@ -269,7 +269,7 @@ class user extends tablelike implements selectable_items {
         $menuitems[] = new \action_menu_link_secondary($url, null, $title);
         $menu = new \action_menu($menuitems);
         $icon = $OUTPUT->pix_icon('i/moremenu', get_string('actions'));
-        $extraclasses = 'btn btn-link btn-icon icon-size-3 d-flex align-items-center justify-content-center';
+        $extraclasses = 'btn btn-link btn-icon d-flex';
         $menu->set_menu_trigger($icon, $extraclasses);
         $menu->set_menu_left();
         $menu->set_boundary('window');

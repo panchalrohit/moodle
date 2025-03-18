@@ -48,6 +48,8 @@
 
 defined('MOODLE_INTERNAL') || die;
 
+require_once(__DIR__ . '/deprecatedlib.php');
+
 /**
  * List of features supported in URL module
  * @param string $feature FEATURE_xx constant for requested feature
@@ -66,7 +68,7 @@ function lti_supports($feature) {
         case FEATURE_SHOW_DESCRIPTION:
             return true;
         case FEATURE_MOD_PURPOSE:
-            return MOD_PURPOSE_CONTENT;
+            return MOD_PURPOSE_OTHER;
 
         default:
             return null;

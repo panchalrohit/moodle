@@ -29,7 +29,6 @@ defined('MOODLE_INTERNAL') || die();
 use core_component;
 use core_course\local\entity\content_item;
 use core_course\local\entity\lang_string_title;
-use core_course\local\entity\string_title;
 
 /**
  * The class content_item_repository, for reading content_items.
@@ -110,6 +109,19 @@ class content_item_readonly_repository implements content_item_readonly_reposito
     }
 
     /**
+     * Filter out any modules that are not to be rendered or managed on the course page.
+     *
+     * @param content_item[] $contentitems items to be filtered
+     * @return content_item[] filtered items
+     */
+    private static function filter_out_items_not_to_be_displayed(array $contentitems): array {
+        return array_filter($contentitems, static function ($module) {
+            [, $name] = core_component::normalize_component($module->get_component_name());
+            return \course_modinfo::is_mod_type_visible_on_course($name);
+        });
+    }
+
+    /**
      * Find all the available content items, not restricted to course or user.
      *
      * @return array the array of content items.
@@ -133,6 +145,7 @@ class content_item_readonly_repository implements content_item_readonly_reposito
             $help = $this->get_core_module_help_string($mod->name);
             $archetype = plugin_supports('mod', $mod->name, FEATURE_MOD_ARCHETYPE, MOD_ARCHETYPE_OTHER);
             $purpose = plugin_supports('mod', $mod->name, FEATURE_MOD_PURPOSE, MOD_PURPOSE_OTHER);
+            $isbranded = component_callback('mod_' . $mod->name, 'is_branded', [], false);
 
             $contentitem = new content_item(
                 $mod->id,
@@ -144,6 +157,7 @@ class content_item_readonly_repository implements content_item_readonly_reposito
                 $archetype,
                 'mod_' . $mod->name,
                 $purpose,
+                $isbranded,
             );
 
             $modcontentitemreference = clone($contentitem);
@@ -166,7 +180,9 @@ class content_item_readonly_repository implements content_item_readonly_reposito
                 $return[] = $contentitem;
             }
         }
-        return $return;
+
+        // These module types are not to be rendered to the course page.
+        return self::filter_out_items_not_to_be_displayed($return);
     }
 
     /**
@@ -195,6 +211,7 @@ class content_item_readonly_repository implements content_item_readonly_reposito
             $help = $this->get_core_module_help_string($mod->name);
             $archetype = plugin_supports('mod', $mod->name, FEATURE_MOD_ARCHETYPE, MOD_ARCHETYPE_OTHER);
             $purpose = plugin_supports('mod', $mod->name, FEATURE_MOD_PURPOSE, MOD_PURPOSE_OTHER);
+            $isbranded = component_callback('mod_' . $mod->name, 'is_branded', [], false);
 
             $icon = 'monologo';
             // Quick check for monologo icons.
@@ -214,6 +231,7 @@ class content_item_readonly_repository implements content_item_readonly_reposito
                 $archetype,
                 'mod_' . $mod->name,
                 $purpose,
+                $isbranded,
             );
 
             $modcontentitemreference = clone($contentitem);
@@ -238,6 +256,7 @@ class content_item_readonly_repository implements content_item_readonly_reposito
             }
         }
 
-        return $return;
+        // These module types are not to be rendered to the course page.
+        return self::filter_out_items_not_to_be_displayed($return);
     }
 }

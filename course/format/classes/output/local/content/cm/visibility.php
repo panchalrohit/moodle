@@ -24,6 +24,8 @@
 
 namespace core_courseformat\output\local\content\cm;
 
+use action_menu_link_secondary;
+use core\output\local\action_menu\subpanel as action_menu_subpanel;
 use cm_info;
 use core_courseformat\base as course_format;
 use core_courseformat\output\local\courseformat_named_templatable;
@@ -76,9 +78,13 @@ class visibility implements named_templatable, renderable {
         if (!$this->show_visibility()) {
             return null;
         }
+        if (!$this->format->show_activity_editor_options($this->mod)) {
+            return null;
+        }
         $format = $this->format;
         // In rare legacy cases, the section could be stealth (orphaned) but they are not editable.
-        if (!$format->show_editor()) {
+        if (!$format->show_editor()
+            || !has_capability('moodle/course:activityvisibility', $this->mod->context)) {
             return $this->build_static_data($output);
         } else {
             return $this->build_editor_data($output);
@@ -128,7 +134,7 @@ class visibility implements named_templatable, renderable {
         \renderer_base $output,
         choicelist $choice,
     ): stdClass {
-        $badgetext = $output->sr_text(get_string('availability'));
+        $badgetext = $output->visually_hidden_text(get_string('availability'));
 
         if (!$this->mod->visible) {
             $badgetext .= get_string('hiddenfromstudents');
@@ -159,6 +165,43 @@ class visibility implements named_templatable, renderable {
         $choice = $this->create_choice_list();
         $choice->set_selected_value($this->get_selected_choice_value());
         return $choice;
+    }
+
+    /**
+     * Return the cm availability menu item.
+     *
+     * By default, the cm availability is displayed as a menu item subpanel.
+     * However, it can be simplified when there is only one option and
+     * it is not stealth (stealth require a subpanel to inform the user).
+     *
+     * @return action_menu_link_secondary|action_menu_subpanel|null
+     */
+    public function get_menu_item(): action_menu_link_secondary|action_menu_subpanel|null {
+        $choice = $this->get_choice_list();
+        $selectableoptions = $choice->get_selectable_options();
+
+        if (count($selectableoptions) === 0) {
+            return null;
+        }
+
+        // Visible activities in hidden sections are always considered stealth.
+        if ($this->section->visible && count($selectableoptions) === 1) {
+            $option = reset($selectableoptions);
+            $actionlabel = $option->value === 'show' ? 'modshow' : 'modhide';
+            return new action_menu_link_secondary(
+                $option->url,
+                $option->icon,
+                get_string($actionlabel, 'moodle'),
+                $choice->get_option_extras($option->value)
+            );
+        }
+
+        return new action_menu_subpanel(
+            get_string('availability', 'moodle'),
+            $choice,
+            ['class' => 'editing_availability'],
+            new pix_icon('t/hide', '', 'moodle', ['class' => 'iconsmall'])
+        );
     }
 
     /**
@@ -193,20 +236,20 @@ class visibility implements named_templatable, renderable {
             $choice->add_option(
                 'show',
                 get_string("availability_{$label}", 'core_courseformat'),
-                $this->get_option_data($label, 'cmShow')
+                $this->get_option_data($label, 'cmShow', 'cm_show')
             );
         }
         $choice->add_option(
             'hide',
             get_string('availability_hide', 'core_courseformat'),
-            $this->get_option_data('hide', 'cmHide')
+            $this->get_option_data('hide', 'cmHide', 'cm_hide')
         );
 
         if ($CFG->allowstealth && $this->format->allow_stealth_module_visibility($this->mod, $this->section)) {
             $choice->add_option(
                 'stealth',
                 get_string('availability_stealth', 'core_courseformat'),
-                $this->get_option_data('stealth', 'cmStealth')
+                $this->get_option_data('stealth', 'cmStealth', 'cm_stealth')
             );
         }
         return $choice;
@@ -215,19 +258,25 @@ class visibility implements named_templatable, renderable {
     /**
      * Get the data for the option.
      * @param string $name the name of the option
-     * @param string $action the state action of the option
+     * @param string $mutation the mutation name
+     * @param string $stateaction the state action name
      * @return array
      */
-    private function get_option_data(string $name, string $action): array {
+    private function get_option_data(string $name, string $mutation, string $stateaction): array {
+        $format = $this->format;
+        $nonajaxurl = $format->get_update_url(
+            action: $stateaction,
+            ids: [$this->mod->id],
+            returnurl: $format->get_view_url($format->get_sectionnum(), ['navigation' => true]),
+        );
+
         return [
             'description' => get_string("availability_{$name}_help", 'core_courseformat'),
             'icon' => $this->get_icon($name),
-            // Non-ajax behat is not smart enough to discrimante hidden links
-            // so we need to keep providing the non-ajax links.
-            'url' => $this->format->get_non_ajax_cm_action_url($action, $this->mod),
+            'url' => $nonajaxurl,
             'extras' => [
                 'data-id' => $this->mod->id,
-                'data-action' => $action,
+                'data-action' => $mutation,
             ]
         ];
     }

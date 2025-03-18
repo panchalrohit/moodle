@@ -33,7 +33,7 @@ require_once($CFG->libdir . '/filestorage/file_progress.php');
  * @copyright 2012 Petr Skoda
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class zip_packer_test extends \advanced_testcase implements file_progress {
+final class zip_packer_test extends \advanced_testcase implements file_progress {
     protected $testfile;
     protected $files;
 
@@ -65,7 +65,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
         );
     }
 
-    public function test_get_packer() {
+    public function test_get_packer(): void {
         $this->resetAfterTest(false);
         $packer = get_file_packer();
         $this->assertInstanceOf('zip_packer', $packer);
@@ -77,7 +77,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_get_packer
      */
-    public function test_list_files() {
+    public function test_list_files(): void {
         $this->resetAfterTest(false);
 
         $files = array(
@@ -140,7 +140,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_list_files
      */
-    public function test_archive_to_pathname() {
+    public function test_archive_to_pathname(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -198,7 +198,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_archive_to_pathname
      */
-    public function test_archive_to_storage() {
+    public function test_archive_to_storage(): void {
         $this->resetAfterTest(false);
 
         $packer = get_file_packer('application/zip');
@@ -221,7 +221,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_archive_to_storage
      */
-    public function test_extract_to_pathname() {
+    public function test_extract_to_pathname(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -264,7 +264,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
      *
      * @link https://bugs.php.net/bug.php?id=77214
      */
-    public function test_zip_entry_path_having_folder_ending_with_dot() {
+    public function test_zip_entry_path_having_folder_ending_with_dot(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -335,7 +335,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_archive_to_storage
      */
-    public function test_extract_to_pathname_onlyfiles() {
+    public function test_extract_to_pathname_onlyfiles(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -375,7 +375,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_archive_to_storage
      */
-    public function test_extract_to_pathname_returnvalue_successful() {
+    public function test_extract_to_pathname_returnvalue_successful(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -393,7 +393,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_archive_to_storage
      */
-    public function test_extract_to_pathname_returnvalue_failure() {
+    public function test_extract_to_pathname_returnvalue_failure(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -410,7 +410,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_archive_to_storage
      */
-    public function test_extract_to_storage() {
+    public function test_extract_to_storage(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -450,7 +450,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * @depends test_extract_to_storage
      */
-    public function test_add_files() {
+    public function test_add_files(): void {
         global $CFG;
 
         $this->resetAfterTest(false);
@@ -489,7 +489,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
         unlink($archive);
     }
 
-    public function test_close_archive() {
+    public function test_close_archive(): void {
         global $CFG;
 
         $this->resetAfterTest(true);
@@ -523,8 +523,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
         unlink($archive);
 
         // Create archive and close if forcing error.
-        // (returns true for old PHP versions and
-        // false with warnings for new PHP versions). MDL-51863.
+        // (returns false with warnings).
         $zip_archive = new zip_archive();
         $result = $zip_archive->open($archive, file_archive::CREATE);
         $this->assertTrue($result);
@@ -536,30 +535,20 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
         unlink($textfile);
         // Behavior is different between old PHP versions and new ones. Let's detect it.
         $result = false;
-        try {
-            // Old PHP versions were not printing any warning.
-            $result = $zip_archive->close();
-        } catch (\Exception $e) {
-            // New PHP versions print PHP Warning.
-            $this->assertInstanceOf('PHPUnit\Framework\Error\Warning', $e);
-            $this->assertStringContainsString('ZipArchive::close', $e->getMessage());
-        }
-        // This is crazy, but it shows how some PHP versions do return true.
-        try {
-            // And some PHP versions do return correctly false (5.4.25, 5.6.14...)
-            $this->assertFalse($result);
-        } catch (\Exception $e) {
-            // But others do insist into returning true (5.6.13...). Only can accept them.
-            $this->assertInstanceOf('PHPUnit\Framework\ExpectationFailedException', $e);
-            $this->assertTrue($result);
-        }
+
+        set_error_handler(function ($errno, $errstr) use (&$result) {
+            $result = $errstr;
+            $this->assertStringContainsString('ZipArchive::close', $errstr);
+        }, E_WARNING);
+        $this->assertFalse($zip_archive->close());
         $this->assertFileDoesNotExist($archive);
+        restore_error_handler();
     }
 
     /**
      * @depends test_add_files
      */
-    public function test_open_archive() {
+    public function test_open_archive(): void {
         global $CFG;
 
         $this->resetAfterTest(true);
@@ -606,7 +595,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * Test opening an encrypted archive
      */
-    public function test_open_encrypted_archive() {
+    public function test_open_encrypted_archive(): void {
         $this->resetAfterTest();
 
         // The archive contains a single encrypted "hello.txt" file.
@@ -624,7 +613,7 @@ class zip_packer_test extends \advanced_testcase implements file_progress {
     /**
      * Tests the progress reporting.
      */
-    public function test_file_progress() {
+    public function test_file_progress(): void {
         global $CFG;
 
         // Set up.

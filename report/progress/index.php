@@ -70,6 +70,7 @@ function csv_quote($value) {
 }
 
 $url = new moodle_url('/report/progress/index.php', array('course'=>$id));
+$PAGE->navigation->override_active_url($url);
 if ($sort !== '') {
     $url->param('sort', $sort);
 }
@@ -272,7 +273,7 @@ if (!$csv) {
     print $pagingbar;
 
     if (!$total) {
-        echo $OUTPUT->heading(get_string('nothingtodisplay'));
+        echo $OUTPUT->notification(get_string('nothingtodisplay'), 'info', false);
         echo $OUTPUT->footer();
         exit;
     }
@@ -313,14 +314,10 @@ foreach($activities as $activity) {
     $datepassed = $activity->completionexpected && $activity->completionexpected <= time();
     $datepassedclass = $datepassed ? 'completion-expired' : '';
 
-    if ($activity->completionexpected) {
-        if ($csv) {
-            $datetext = userdate($activity->completionexpected, "%F %T");
-        } else {
-            $datetext = userdate($activity->completionexpected, get_string('strftimedate', 'langconfig'));
-        }
+    if ($activity->completionexpected && !$csv) {
+        $datetext = userdate($activity->completionexpected, get_string('strftimedate', 'langconfig'));
     } else {
-        $datetext='';
+        $datetext = get_string('completed');
     }
 
     // Some names (labels) come URL-encoded and can be very long, so shorten them

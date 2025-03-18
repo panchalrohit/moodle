@@ -25,151 +25,14 @@ namespace core;
  * @copyright 2014 Totara Learning Solutions Ltd {@link http://www.totaralms.com/}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class sessionlib_test extends \advanced_testcase {
-
-    /**
-     * @covers ::cron_setup_user
-     */
-    public function test_cron_setup_user() {
-        // This function uses the $GLOBALS super global. Disable the VariableNameLowerCase sniff for this function.
-        // phpcs:disable moodle.NamingConventions.ValidVariableName.VariableNameLowerCase
-
-        global $PAGE, $USER, $SESSION, $SITE, $CFG;
-        $this->resetAfterTest();
-
-        // NOTE: this function contains some static caches, let's reset first.
-        cron_setup_user('reset');
-        $this->assertDebuggingCalledCount(1);
-
-        $admin = get_admin();
-        $user1 = $this->getDataGenerator()->create_user();
-        $user2 = $this->getDataGenerator()->create_user();
-        $course = $this->getDataGenerator()->create_course();
-
-        cron_setup_user();
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($admin->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($SITE->id));
-        $this->assertSame($CFG->timezone, $USER->timezone);
-        $this->assertSame('', $USER->lang);
-        $this->assertSame('', $USER->theme);
-        $SESSION->test1 = true;
-        $adminsession = $SESSION;
-        $adminuser = $USER;
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user(null, $course);
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($admin->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($course->id));
-        $this->assertSame($adminsession, $SESSION);
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user($user1);
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($user1->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($SITE->id));
-        $this->assertNotSame($adminsession, $SESSION);
-        $this->assertObjectNotHasAttribute('test1', $SESSION);
-        $this->assertEmpty((array)$SESSION);
-        $usersession1 = $SESSION;
-        $SESSION->test2 = true;
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user($user1);
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($user1->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($SITE->id));
-        $this->assertNotSame($adminsession, $SESSION);
-        $this->assertSame($usersession1, $SESSION);
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user($user2);
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($user2->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($SITE->id));
-        $this->assertNotSame($adminsession, $SESSION);
-        $this->assertNotSame($usersession1, $SESSION);
-        $this->assertEmpty((array)$SESSION);
-        $usersession2 = $SESSION;
-        $usersession2->test3 = true;
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user($user2, $course);
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($user2->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($course->id));
-        $this->assertNotSame($adminsession, $SESSION);
-        $this->assertNotSame($usersession1, $SESSION);
-        $this->assertSame($usersession2, $SESSION);
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user($user1);
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($user1->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($SITE->id));
-        $this->assertNotSame($adminsession, $SESSION);
-        $this->assertNotSame($usersession1, $SESSION);
-        $this->assertEmpty((array)$SESSION);
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user();
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($admin->id, $USER->id);
-        $this->assertSame($PAGE->context, \context_course::instance($SITE->id));
-        $this->assertSame($adminsession, $SESSION);
-        $this->assertSame($adminuser, $USER);
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user('reset');
-        $this->assertDebuggingCalledCount(1);
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        cron_setup_user();
-        $this->assertDebuggingCalledCount(1);
-        $this->assertNotSame($adminsession, $SESSION);
-        $this->assertNotSame($adminuser, $USER);
-        $this->assertSame($GLOBALS['SESSION'], $_SESSION['SESSION']);
-        $this->assertSame($GLOBALS['SESSION'], $SESSION);
-        $this->assertSame($GLOBALS['USER'], $_SESSION['USER']);
-        $this->assertSame($GLOBALS['USER'], $USER);
-
-        // phpcs:enable
-    }
+final class sessionlib_test extends \advanced_testcase {
 
     /**
      * Test provided for secure cookie
      *
      * @return array of config and secure result
      */
-    public function moodle_cookie_secure_provider() {
+    public static function moodle_cookie_secure_provider(): array {
         return array(
             array(
                 // Non ssl, not set.
@@ -245,7 +108,7 @@ class sessionlib_test extends \advanced_testcase {
      * @param array $config Array of key value config settings
      * @param bool $secure Wether cookies should be secure or not
      */
-    public function test_is_moodle_cookie_secure($config, $secure) {
+    public function test_is_moodle_cookie_secure($config, $secure): void {
         global $CFG;
         $this->resetAfterTest();
         foreach ($config as $key => $value) {
@@ -254,14 +117,14 @@ class sessionlib_test extends \advanced_testcase {
         $this->assertEquals($secure, is_moodle_cookie_secure());
     }
 
-    public function test_sesskey() {
+    public function test_sesskey(): void {
         global $USER;
         $this->resetAfterTest();
 
         $user = $this->getDataGenerator()->create_user();
 
         \core\session\manager::init_empty_session();
-        $this->assertObjectNotHasAttribute('sesskey', $USER);
+        $this->assertObjectNotHasProperty('sesskey', $USER);
 
         $sesskey = sesskey();
         $this->assertNotEmpty($sesskey);
@@ -281,7 +144,7 @@ class sessionlib_test extends \advanced_testcase {
         $this->assertFalse(sesskey());
     }
 
-    public function test_confirm_sesskey() {
+    public function test_confirm_sesskey(): void {
         $this->resetAfterTest();
 
         $sesskey = sesskey();
@@ -303,7 +166,7 @@ class sessionlib_test extends \advanced_testcase {
         $this->assertFalse(confirm_sesskey());
     }
 
-    public function test_require_sesskey() {
+    public function test_require_sesskey(): void {
         $this->resetAfterTest();
 
         $sesskey = sesskey();

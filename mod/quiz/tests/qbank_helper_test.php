@@ -34,7 +34,7 @@ require_once(__DIR__ . '/quiz_question_helper_test_trait.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @coversDefaultClass \mod_quiz\question\bank\qbank_helper
  */
-class qbank_helper_test extends \advanced_testcase {
+final class qbank_helper_test extends \advanced_testcase {
     use \quiz_question_helper_test_trait;
 
     /**
@@ -59,7 +59,7 @@ class qbank_helper_test extends \advanced_testcase {
      *
      * @covers ::get_version_options
      */
-    public function test_reference_records() {
+    public function test_reference_records(): void {
         $this->resetAfterTest();
 
         $quiz = $this->create_test_quiz($this->course);
@@ -88,6 +88,7 @@ class qbank_helper_test extends \advanced_testcase {
         $slots = $structure->get_slots();
         $slot = reset($slots);
         $this->assertEquals(3, count(qbank_helper::get_version_options($question->id)));
+        $this->assertDebuggingCalled();
         $this->assertEquals($question->id, qbank_helper::choose_question_for_redo(
                 $quiz->id, $context, $slot->id, new \qubaid_list([])));
 
@@ -110,7 +111,7 @@ class qbank_helper_test extends \advanced_testcase {
      * @covers ::get_question_structure
      * @covers ::get_always_latest_version_question_ids
      */
-    public function test_get_question_structure() {
+    public function test_get_question_structure(): void {
         $this->resetAfterTest();
 
         // Create a quiz.

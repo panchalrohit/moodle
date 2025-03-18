@@ -294,59 +294,63 @@ class grade_category extends grade_object {
     public function delete($source=null) {
         global $DB;
 
-        $transaction = $DB->start_delegated_transaction();
-        $grade_item = $this->load_grade_item();
+        try {
+            $transaction = $DB->start_delegated_transaction();
+            $grade_item = $this->load_grade_item();
 
-        if ($this->is_course_category()) {
+            if ($this->is_course_category()) {
 
-            if ($categories = grade_category::fetch_all(array('courseid'=>$this->courseid))) {
+                if ($categories = self::fetch_all(['courseid' => $this->courseid])) {
 
-                foreach ($categories as $category) {
+                    foreach ($categories as $category) {
 
-                    if ($category->id == $this->id) {
-                        continue; // do not delete course category yet
+                        if ($category->id == $this->id) {
+                            continue; // Do not delete course category yet.
+                        }
+                        $category->delete($source);
                     }
-                    $category->delete($source);
                 }
-            }
 
-            if ($items = grade_item::fetch_all(array('courseid'=>$this->courseid))) {
+                if ($items = grade_item::fetch_all(['courseid' => $this->courseid])) {
 
-                foreach ($items as $item) {
+                    foreach ($items as $item) {
 
-                    if ($item->id == $grade_item->id) {
-                        continue; // do not delete course item yet
+                        if ($item->id == $grade_item->id) {
+                            continue; // Do not delete course item yet.
+                        }
+                        $item->delete($source);
                     }
-                    $item->delete($source);
+                }
+
+            } else {
+                $this->force_regrading();
+
+                $parent = $this->load_parent_category();
+
+                // Update children's categoryid/parent field first.
+                if ($children = grade_item::fetch_all(['categoryid' => $this->id])) {
+                    foreach ($children as $child) {
+                        $child->set_parent($parent->id);
+                    }
+                }
+
+                if ($children = self::fetch_all(['parent' => $this->id])) {
+                    foreach ($children as $child) {
+                        $child->set_parent($parent->id);
+                    }
                 }
             }
 
-        } else {
-            $this->force_regrading();
+            // First delete the attached grade item and grades.
+            $grade_item->delete($source);
 
-            $parent = $this->load_parent_category();
+            // Delete category itself.
+            $success = parent::delete($source);
 
-            // Update children's categoryid/parent field first
-            if ($children = grade_item::fetch_all(array('categoryid'=>$this->id))) {
-                foreach ($children as $child) {
-                    $child->set_parent($parent->id);
-                }
-            }
-
-            if ($children = grade_category::fetch_all(array('parent'=>$this->id))) {
-                foreach ($children as $child) {
-                    $child->set_parent($parent->id);
-                }
-            }
+            $transaction->allow_commit();
+        } catch (Exception $e) {
+            $transaction->rollback($e);
         }
-
-        // first delete the attached grade item and grades
-        $grade_item->delete($source);
-
-        // delete category itself
-        $success = parent::delete($source);
-
-        $transaction->allow_commit();
         return $success;
     }
 
@@ -507,28 +511,23 @@ class grade_category extends grade_object {
             }
         }
 
-        $grade_inst = new grade_grade();
-        $fields = 'g.'.implode(',g.', $grade_inst->required_fields);
+        $gradeinst = new grade_grade();
+        $fields = implode(',', $gradeinst->required_fields);
 
         // where to look for final grades - include grade of this item too, we will store the results there
         $gis = array_merge($depends_on, array($this->grade_item->id));
         list($usql, $params) = $DB->get_in_or_equal($gis);
 
         if ($userid) {
-            $usersql = "AND g.userid=?";
+            $usersql = "AND userid=?";
             $params[] = $userid;
 
         } else {
             $usersql = "";
         }
 
-        $sql = "SELECT $fields
-                  FROM {grade_grades} g, {grade_items} gi
-                 WHERE gi.id = g.itemid AND gi.id $usql $usersql
-              ORDER BY g.userid";
-
         // group the results by userid and aggregate the grades for this user
-        $rs = $DB->get_recordset_sql($sql, $params);
+        $rs = $DB->get_recordset_select('grade_grades', "itemid $usql $usersql", $params, 'userid', $fields);
         if ($rs->valid()) {
             $prevuser = 0;
             $grade_values = array();
@@ -2057,7 +2056,7 @@ class grade_category extends grade_object {
      * @param int   $sortorder The current sortorder
      * @return array An array containing 'object', 'type', 'depth' and optionally 'children'
      */
-    static private function _fetch_course_tree_recursion($category_array, &$sortorder) {
+    private static function _fetch_course_tree_recursion($category_array, &$sortorder) {
         if (isset($category_array['object']->gradetype) && $category_array['object']->gradetype==GRADE_TYPE_NONE) {
             return null;
         }

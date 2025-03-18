@@ -80,6 +80,7 @@ class behat_partial_named_selector extends \Behat\Mink\Selector\PartialNamedSele
         'group_message' => 'group_message',
         'autocomplete' => 'autocomplete',
         'iframe' => 'iframe',
+        'option_role' => 'option_role',
     );
 
     /**
@@ -108,6 +109,7 @@ class behat_partial_named_selector extends \Behat\Mink\Selector\PartialNamedSele
         'group_message_tab' => 'group_message_tab',
         'group_message_list_area' => 'group_message_list_area',
         'group_message_message_content' => 'group_message_message_content',
+        'heading' => 'heading',
         'icon_container' => 'icon_container',
         'icon' => 'icon',
         'link' => 'link',
@@ -225,13 +227,16 @@ XPATH
         //div[@data-region='empty-message-container' and not(contains(@class, 'hidden')) and contains(., %locator%)]
 XPATH
     , 'group_message_tab' => <<<XPATH
-        .//*[@data-region='message-drawer']//button[@data-toggle='collapse' and contains(string(), %locator%)]
+        .//*[@data-region='message-drawer']//button[@data-bs-toggle='collapse' and contains(string(), %locator%)]
 XPATH
     , 'group_message_list_area' => <<<XPATH
         .//*[@data-region='message-drawer']//*[contains(@data-region, concat('view-overview-', %locator%))]
 XPATH
     , 'group_message_message_content' => <<<XPATH
         .//*[@data-region='message-drawer']//*[@data-region='message' and @data-message-id and contains(., %locator%)]
+XPATH
+    , 'heading' => <<<XPATH
+        .//*[self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6][contains(normalize-space(.), %locator%)]
 XPATH
     , 'icon_container' => <<<XPATH
         .//span[contains(@data-region, concat(%locator%,'-icon-container'))]
@@ -258,6 +263,9 @@ XPATH
 XPATH
         , 'section' => <<<XPATH
 .//li[contains(concat(' ', normalize-space(@class), ' '), ' section ')][./descendant::*[self::h3]
+    [normalize-space(.) = %locator%][contains(concat(' ', normalize-space(@class), ' '), ' sectionname ') or
+    contains(concat(' ', normalize-space(@class), ' '), ' section-title ')]] |
+.//li[contains(concat(' ', normalize-space(@class), ' '), ' section ')][./descendant::*[self::h4]
     [normalize-space(.) = %locator%][contains(concat(' ', normalize-space(@class), ' '), ' sectionname ') or
     contains(concat(' ', normalize-space(@class), ' '), ' section-title ')]] |
 .//div[contains(concat(' ', normalize-space(@class), ' '), ' sitetopic ')]
@@ -320,7 +328,13 @@ XPATH
 XPATH
         ,
             'date_time' => <<<XPATH
-.//fieldset[(%idMatch% or ./legend[%exactTagTextMatch%]) and (@data-fieldtype='date' or @data-fieldtype='date_time')]
+.//*[
+    (%idMatch% or ./legend[%exactTagTextMatch%]
+        or parent::div[@data-groupname=%locator% or ./label[contains(normalize-space(string(.)), %locator%)]]
+    ) and
+    (@data-fieldtype='date' or @data-fieldtype='date_time'
+        or @data-fieldtype='date_selector' or @data-fieldtype='date_time_selector')
+]
 XPATH
         ,
             'select_menu' => <<<XPATH

@@ -14,41 +14,34 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * A javascript module to handle question ajax actions.
+ * A javascript module to handle core_question ajax actions.
  *
- * @deprecated since Moodle 4.0
- * @todo Final deprecation on Moodle 4.4 MDL-72438
  * @module     core_question/repository
- * @copyright  2017 Simey Lameze <lameze@moodle.com>
+ * @copyright  2024 onwards Catalyst IT EU {@link https://catalyst-eu.net}
+ * @author     Simon Adams <simon.adams@catalyst-eu.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define(['jquery', 'core/ajax'], function($, Ajax) {
 
-    /**
-     * Submit the form data for the question tags form.
-     *
-     * @method submitTagCreateUpdateForm
-     * @param  {number} questionId
-     * @param  {number} contextId
-     * @param {string} formdata The URL encoded values from the form
-     * @returns {promise}
-     */
-    var submitTagCreateUpdateForm = function(questionId, contextId, formdata) {
-        window.console.warn('warn: The core_question/repository has been deprecated.' +
-            'Please use qbank_tagquestion/repository instead.');
-        var request = {
-            methodname: 'core_question_submit_tags_form',
-            args: {
-                questionid: questionId,
-                contextid: contextId,
-                formdata: formdata
-            }
-        };
+import Ajax from 'core/ajax';
 
-        return Ajax.call([request])[0];
-    };
-
-    return {
-        submitTagCreateUpdateForm: submitTagCreateUpdateForm
-    };
-});
+/**
+ * @param {integer} newContextId target bank context id
+ * @param {integer} newCategoryId target question category id
+ * @param {string} questionIds questionIds comma separated list of question ids to move.
+ * @param {string} returnUrl optional url to add/update the filter param with the new category id
+ * @return {*}
+ */
+export const moveQuestions = (
+    newContextId,
+    newCategoryId,
+    questionIds,
+    returnUrl = '',
+) => Ajax.call([{
+    methodname: 'core_question_move_questions',
+    args: {
+        newcontextid: newContextId,
+        newcategoryid: newCategoryId,
+        questionids: questionIds,
+        returnurl: returnUrl,
+    },
+}])[0];

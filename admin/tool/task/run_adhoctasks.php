@@ -37,6 +37,7 @@ $tasksurl = '/admin/tool/task/adhoctasks.php';
 // Allow execution of single task. This requires login and has different rules.
 $classname = optional_param('classname', null, PARAM_RAW);
 $failedonly = optional_param('failedonly', false, PARAM_BOOL);
+$dueonly = optional_param('dueonly', false, PARAM_BOOL);
 $taskid = optional_param('id', null, PARAM_INT);
 $confirmed = optional_param('confirm', 0, PARAM_INT);
 
@@ -45,7 +46,7 @@ if (!\core\task\manager::is_runnable()) {
     throw new moodle_exception('cannotfindthepathtothecli', 'tool_task', $redirecturl->out());
 }
 
-$params = ['classname' => $classname, 'failedonly' => $failedonly, 'id' => $taskid];
+$params = ['classname' => $classname, 'failedonly' => $failedonly, 'dueonly' => $dueonly, 'id' => $taskid];
 
 // Check input parameter id against all existing tasks.
 if ($taskid) {
@@ -54,16 +55,22 @@ if ($taskid) {
         throw new \moodle_exception('invalidtaskid');
     }
     $classname = $record->classname;
-    $heading = "Run $classname task Id $taskid";
+    $heading = get_string('runadhoctask', 'tool_task', ['task' => $classname, 'taskid' => $taskid]);
     $tasks = [core\task\manager::adhoc_task_from_record($record)];
 } else {
     if (!$classname) {
         throw new \moodle_exception('noclassname', 'tool_task');
     }
-    $heading = "Run " . s($classname) . " " . ($failedonly ? "failed" : "all")." tasks";
+
+    $heading = get_string(
+        $failedonly ? 'runadhoctasksfailed' : 'runadhoctasks',
+        'tool_task',
+        s($classname),
+    );
+
     $now = time();
     $tasks = array_filter(
-        core\task\manager::get_adhoc_tasks($classname, $failedonly, true),
+        core\task\manager::get_adhoc_tasks($classname, $failedonly, $dueonly, true),
         function ($t) use ($now) {
             return $t->get_fail_delay() || $t->get_next_run_time() <= $now;
         }
@@ -109,31 +116,35 @@ if (!$confirmed) {
 require_sesskey();
 
 \core\session\manager::write_close();
+echo $OUTPUT->footer();
+echo $OUTPUT->select_element_for_append();
 
 // Prepare to handle output via mtrace.
-require('lib.php');
+require_once("{$CFG->dirroot}/{$CFG->admin}/tool/task/lib.php");
 $CFG->mtrace_wrapper = 'tool_task_mtrace_wrapper';
 
 // Run the specified tasks.
 if ($taskid) {
     $repeat = $DB->get_record('task_adhoc', ['id' => $taskid]);
 
-    echo html_writer::start_tag('pre');
+    echo html_writer::start_tag('pre', ['class' => 'task-output']);
     \core\task\manager::run_adhoc_from_cli($taskid);
     echo html_writer::end_tag('pre');
 } else {
-    $repeat = core\task\manager::get_adhoc_tasks($classname, $failedonly, true);
+    $repeat = core\task\manager::get_adhoc_tasks($classname, $failedonly, $dueonly, true);
 
     // Run failed first (if any). We have to run them separately anyway,
     // because faildelay is observed if failed flag is not true.
-    echo html_writer::tag('p', get_string('runningfailedtasks', 'tool_task'), ['class' => 'lead']);
-    echo html_writer::start_tag('pre');
-    \core\task\manager::run_all_adhoc_from_cli(true, $classname);
-    echo html_writer::end_tag('pre');
+    if (!$dueonly) {
+        echo html_writer::tag('p', get_string('runningfailedtasks', 'tool_task'), ['class' => 'lead']);
+        echo html_writer::start_tag('pre', ['class' => 'task-output']);
+        \core\task\manager::run_all_adhoc_from_cli(true, $classname);
+        echo html_writer::end_tag('pre');
+    }
 
     if (!$failedonly) {
         echo html_writer::tag('p', get_string('runningalltasks', 'tool_task'), ['class' => 'lead']);
-        echo html_writer::start_tag('pre');
+        echo html_writer::start_tag('pre', ['class' => 'task-output']);
         \core\task\manager::run_all_adhoc_from_cli(false, $classname);
         echo html_writer::end_tag('pre');
     }
@@ -155,4 +166,3 @@ echo html_writer::div(
     )
 );
 
-echo $OUTPUT->footer();

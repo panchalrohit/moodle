@@ -30,20 +30,18 @@ require_once($CFG->libdir . '/completionlib.php');
  * @copyright  2017 Marina Glancy
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class bulk_update_test extends \advanced_testcase {
+final class bulk_update_test extends \advanced_testcase {
 
     /**
      * Provider for test_bulk_form_submit_single
      * @return array
      */
-    public function bulk_form_submit_single_provider() {
+    public static function bulk_form_submit_single_provider(): array {
         return [
             'assign-1' => ['assign', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionsubmit' => 1]],
             'assign-2' => ['assign', ['completion' => COMPLETION_TRACKING_MANUAL]],
             'book-1' => ['book', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1]],
             'book-2' => ['book', ['completion' => COMPLETION_TRACKING_MANUAL]],
-            'chat-1' => ['chat', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1]],
-            'chat-2' => ['chat', ['completion' => COMPLETION_TRACKING_MANUAL]],
             'choice-1' => ['choice', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionsubmit' => 1]],
             'choice-2' => ['choice', ['completion' => COMPLETION_TRACKING_MANUAL]],
             'data-1' => ['data', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1]],
@@ -94,8 +92,6 @@ class bulk_update_test extends \advanced_testcase {
                 ],
             ],
             'scorm-2' => ['scorm', ['completion' => COMPLETION_TRACKING_MANUAL]],
-            'survey-1' => ['survey', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionsubmit' => 1]],
-            'survey-2' => ['survey', ['completion' => COMPLETION_TRACKING_MANUAL]],
             'url-1' => ['url', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1]],
             'url-2' => ['url', ['completion' => COMPLETION_TRACKING_MANUAL]],
             'wiki-1' => ['wiki', ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1]],
@@ -113,7 +109,7 @@ class bulk_update_test extends \advanced_testcase {
      * @param array $submitdata data to use in mock form submit
      * @param array|null $validatedata data to validate the
      */
-    public function test_bulk_form_submit_single($modname, $submitdata, $validatedata = null) {
+    public function test_bulk_form_submit_single($modname, $submitdata, $validatedata = null): void {
         global $DB;
 
         if ($validatedata === null) {
@@ -179,7 +175,7 @@ class bulk_update_test extends \advanced_testcase {
      * Provider for test_bulk_form_submit_multiple
      * @return array
      */
-    public function bulk_form_submit_multiple_provider() {
+    public static function bulk_form_submit_multiple_provider(): array {
         return [
             'Several modules with the same module type (choice)' => [
                 [
@@ -210,7 +206,7 @@ class bulk_update_test extends \advanced_testcase {
             ],
             'If at least one module does not support completionsubmit it can\'t be set' => [
                 [
-                    'modulenames' => ['survey', 'wiki'],
+                    'modulenames' => ['assign', 'wiki'],
                     'submitdata' => ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1, 'completionsubmit' => 1],
                     'validatedata' => [],
                     'cmdata' => ['completion' => COMPLETION_TRACKING_AUTOMATIC, 'completionview' => 1],
@@ -226,7 +222,7 @@ class bulk_update_test extends \advanced_testcase {
      * @dataProvider bulk_form_submit_multiple_provider
      * @param array $providerdata
      */
-    public function test_bulk_form_submit_multiple($providerdata) {
+    public function test_bulk_form_submit_multiple($providerdata): void {
         global $DB;
 
         $modulenames = $providerdata['modulenames'];

@@ -62,17 +62,44 @@ class core_question_generator extends component_generator_base {
             'info'       => '',
             'infoformat' => FORMAT_HTML,
             'stamp'      => make_unique_id_code(),
-            'sortorder'  => 999,
-            'idnumber'   => null
+            'idnumber'   => null,
         ];
 
         $record = $this->datagenerator->combine_defaults_and_record($defaults, $record);
 
         if (!isset($record['contextid'])) {
-            $record['contextid'] = context_system::instance()->id;
+            if (isset($record['parent'])) {
+                $record['contextid'] = $DB->get_field('question_categories', 'contextid', ['id' => $record['parent']]);
+            } else {
+                $qbank = $this->datagenerator->create_module('qbank', ['course' => SITEID]);
+                $record['contextid'] = context_module::instance($qbank->cmid)->id;
+            }
+        } else {
+            // Any requests for a question category in a contextlevel that is no longer supported
+            // will have a qbank instance created on the associated context and then the category
+            // will be made for that context instead.
+            $context = context::instance_by_id($record['contextid']);
+            if ($context->contextlevel !== CONTEXT_MODULE) {
+                $course = match ($context->contextlevel) {
+                    CONTEXT_COURSE => get_course($context->instanceid),
+                    CONTEXT_SYSTEM => get_site(),
+                    CONTEXT_COURSECAT => $this->datagenerator->create_course(['category' => $context->instanceid]),
+                    default => throw new \Exception('Invalid context to infer a question bank from.'),
+                };
+                $qbank = \core_question\local\bank\question_bank_helper::get_default_open_instance_system_type($course, true);
+                $bankcontext = context_module::instance($qbank->id);
+            } else {
+                $bankcontext = $context;
+            }
+            $record['contextid'] = $bankcontext->id;
         }
+
         if (!isset($record['parent'])) {
             $record['parent'] = question_get_top_category($record['contextid'], true)->id;
+        }
+        if (!isset($record['sortorder'])) {
+            $manager = new \core_question\category_manager();
+            $record['sortorder'] = $manager->get_max_sortorder($record['parent']) + 1;
         }
         $record['id'] = $DB->insert_record('question_categories', $record);
         return (object) $record;
@@ -134,14 +161,14 @@ class core_question_generator extends component_generator_base {
 
         $question = question_bank::get_qtype($qtype)->save_question($question, $fromform);
 
-        if ($overrides && (array_key_exists('createdby', $overrides) || array_key_exists('modifiedby', $overrides))) {
-            // Manually update the createdby and modifiedby because questiontypebase forces
-            // current user and some tests require a specific user.
-            if (array_key_exists('createdby', $overrides)) {
-                $question->createdby = $overrides['createdby'];
-            }
-            if (array_key_exists('modifiedby', $overrides)) {
-                $question->modifiedby = $overrides['modifiedby'];
+        $validoverrides = ['createdby', 'modifiedby', 'timemodified'];
+        if ($overrides && !empty(array_intersect($validoverrides, array_keys($overrides)))) {
+            // Manually update the createdby, modifiedby and timemodified because questiontypebase forces
+            // current user and time and some tests require a specific user or time.
+            foreach ($validoverrides as $validoverride) {
+                if (array_key_exists($validoverride, $overrides)) {
+                    $question->{$validoverride} = $overrides[$validoverride];
+                }
             }
             $DB->update_record('question', $question);
         }
@@ -155,33 +182,20 @@ class core_question_generator extends component_generator_base {
     }
 
     /**
-     * Setup a course category, course, a question category, and 2 questions
-     * for testing.
+     * Set up a course category, a course, a mod_qbank instance, a question category for the mod_qbank instance,
+     * and 2 questions for testing.
      *
-     * @param string $type The type of question category to create.
-     * @return array The created data objects
+     * @return array of the data objects mentioned above
      */
-    public function setup_course_and_questions($type = 'course') {
+    public function setup_course_and_questions() {
         $datagenerator = $this->datagenerator;
         $category = $datagenerator->create_category();
         $course = $datagenerator->create_course([
             'numsections' => 5,
             'category' => $category->id
         ]);
-
-        switch ($type) {
-            case 'category':
-                $context = context_coursecat::instance($category->id);
-                break;
-
-            case 'system':
-                $context = context_system::instance();
-                break;
-
-            default:
-                $context = context_course::instance($course->id);
-                break;
-        }
+        $qbank = $datagenerator->create_module('qbank', ['course' => $course->id]);
+        $context = context_module::instance($qbank->cmid);
 
         $qcat = $this->create_question_category(['contextid' => $context->id]);
 
@@ -190,7 +204,7 @@ class core_question_generator extends component_generator_base {
                 $this->create_question('shortanswer', null, ['category' => $qcat->id]),
         ];
 
-        return [$category, $course, $qcat, $questions];
+        return [$category, $course, $qcat, $questions, $qbank];
     }
 
     /**
@@ -198,13 +212,13 @@ class core_question_generator extends component_generator_base {
      * responses to a number of questions within a question usage.
      *
      * In the responses array, the array keys are the slot numbers for which a response will
-     * be submitted. You can submit a response to any number of responses within the usage.
+     * be submitted. You can submit a response to any number of questions within the usage.
      * There is no need to do them all. The values are a string representation of the response.
      * The exact meaning of that depends on the particular question type. These strings
      * are passed to the un_summarise_response method of the question to decode.
      *
      * @param question_usage_by_activity $quba the question usage.
-     * @param array $responses the resonses to submit, in the format described above.
+     * @param array $responses the responses to submit, in the format described above.
      * @param bool $checkbutton if simulate a click on the check button for each question, else simulate save.
      *      This should only be used with behaviours that have a check button.
      * @return array that can be passed to methods like $quba->process_all_actions as simulated POST data.

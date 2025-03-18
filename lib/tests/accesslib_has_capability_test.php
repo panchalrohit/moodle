@@ -30,7 +30,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers ::has_capability
  */
-class accesslib_has_capability_test extends \advanced_testcase {
+final class accesslib_has_capability_test extends \advanced_testcase {
 
     /**
      * Unit tests to check the operation of locked contexts.
@@ -42,7 +42,7 @@ class accesslib_has_capability_test extends \advanced_testcase {
      * @param   string[]    $lockedcontexts The list of contexts, by name, to mark as locked
      * @param   string[]    $blocked The list of contexts which will be 'blocked' by has_capability
      */
-    public function test_locked_contexts($lockedcontexts, $blocked) {
+    public function test_locked_contexts($lockedcontexts, $blocked): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -207,7 +207,7 @@ class accesslib_has_capability_test extends \advanced_testcase {
      * @param   string[]    $lockedcontexts The list of contexts, by name, to mark as locked
      * @param   string[]    $blocked The list of contexts which will be 'blocked' by has_capability
      */
-    public function test_locked_contexts_for_admin_with_config($lockedcontexts, $blocked) {
+    public function test_locked_contexts_for_admin_with_config($lockedcontexts, $blocked): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -364,35 +364,35 @@ class accesslib_has_capability_test extends \advanced_testcase {
      *
      * @return  array
      */
-    public function locked_context_provider() {
+    public static function locked_context_provider(): array {
         return [
             'All unlocked' => [
-                'locked' => [
+                'lockedcontexts' => [
                 ],
-                'blockedwrites' => [
+                'blocked' => [
                 ],
             ],
             'User is locked (yes, this is weird)' => [
-                'locked' => [
+                'lockedcontexts' => [
                     'adminuser' => true,
                 ],
-                'blockedwrites' => [
+                'blocked' => [
                     'adminuser',
                 ],
             ],
             'Cat1/Block locked' => [
-                'locked' => [
+                'lockedcontexts' => [
                     'cat1block' => true,
                 ],
-                'blockedwrites' => [
+                'blocked' => [
                     'cat1block',
                 ],
             ],
             'Cat1' => [
-                'locked' => [
+                'lockedcontexts' => [
                     'cat1' => true,
                 ],
-                'blockedwrites' => [
+                'blocked' => [
                     'cat1',
                     'cat1block',
                     'cat1a',
@@ -414,11 +414,11 @@ class accesslib_has_capability_test extends \advanced_testcase {
                 ],
             ],
             'Cat1 locked and a child explicitly unlocked' => [
-                'locked' => [
+                'lockedcontexts' => [
                     'cat1' => true,
                     'cat1a' => false,
                 ],
-                'blockedwrites' => [
+                'blocked' => [
                     'cat1',
                     'cat1block',
                     'cat1a',
@@ -447,7 +447,7 @@ class accesslib_has_capability_test extends \advanced_testcase {
      *
      * @return  array
      */
-    public function login_as_provider(): array {
+    public static function login_as_provider(): array {
         return [
             [
                 'system',

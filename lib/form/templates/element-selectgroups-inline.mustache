@@ -1,13 +1,16 @@
 {{< core_form/element-template-inline }}
     {{$element}}
     {{^element.frozen}}
-    <select class="form-control custom-select {{#error}}is-invalid{{/error}}" name="{{element.name}}"
+    <select class="form-control form-select {{#error}}is-invalid{{/error}}" name="{{element.name}}"
         id="{{element.id}}"
         {{#element.multiple}}multiple{{/element.multiple}}
         {{#element.size}}size="{{element.size}}"{{/element.size}}
         {{#error}}
             autofocus aria-describedby="{{element.iderror}}"
         {{/error}}
+        {{#required}}
+            aria-required="true"
+        {{/required}}
         {{{element.attributes}}} >
         {{#element.optiongroups}}
         {{#text}}

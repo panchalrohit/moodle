@@ -39,7 +39,7 @@ defined('MOODLE_INTERNAL') || die();
  */
 class core_files_renderer extends plugin_renderer_base {
 
-    public function files_tree_viewer(file_info $file_info, array $options = null) {
+    public function files_tree_viewer(file_info $file_info, ?array $options = null) {
         $tree = new files_tree_viewer($file_info, $options);
         return $this->render($tree);
     }
@@ -176,7 +176,7 @@ class core_files_renderer extends plugin_renderer_base {
         <div class="fp-filename text-truncate"></div>
     </div>
     </a>
-    <a class="fp-contextmenu btn btn-icon btn-light border icon-no-margin icon-size-3" href="#">
+    <a class="fp-contextmenu btn btn-icon btn-light border" href="#">
         <span>'.$this->pix_icon('i/menu', '▶').'</span></a>
 </div>';
         return $rv;
@@ -534,7 +534,7 @@ class core_files_renderer extends plugin_renderer_base {
      *
      * @return \stdClass $iconcontext the context for rendering license help info.
      */
-    protected function create_license_help_icon_context() : stdClass {
+    protected function create_license_help_icon_context(): stdClass {
         $licensecontext = new stdClass();
 
         $licenses = [];
@@ -576,7 +576,7 @@ class files_tree_viewer implements renderable {
      * @param file_info $file_info
      * @param array $options
      */
-    public function __construct(file_info $file_info, array $options = null) {
+    public function __construct(file_info $file_info, ?array $options = null) {
         global $CFG;
 
         //note: this MUST NOT use get_file_storage() !!!!!!!!!!!!!!!!!!!!!!!!!!!!

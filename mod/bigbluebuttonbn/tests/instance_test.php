@@ -34,7 +34,7 @@ use moodle_exception;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @coversDefaultClass \mod_bigbluebuttonbn\instance
  */
-class instance_test extends advanced_testcase {
+final class instance_test extends advanced_testcase {
 
     /**
      * Test get from
@@ -65,7 +65,7 @@ class instance_test extends advanced_testcase {
      *
      * @return string[][]
      */
-    public function get_from_location_provider(): array {
+    public static function get_from_location_provider(): array {
         return [
             ['get_from_instanceid', 'id'],
             ['get_from_cmid', 'cmid'],
@@ -158,6 +158,36 @@ class instance_test extends advanced_testcase {
     }
 
     /**
+     * Test getting Meeting ID from log as Log field (meetingid) is the full meeting id (with courseid, and bigbluebuttonid).
+     *
+     * @covers ::get_from_meetingid
+     */
+    public function test_get_from_meetingid_from_log(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [
+            'record' => $record,
+            'course' => $course,
+            'cm' => $cm,
+        ] = $this->get_test_instance();
+        $instance = instance::get_from_cmid($cm->id);
+        $instance->set_group_id(1);
+        logger::log_meeting_joined_event($instance, 1);
+
+        // Get the meeting ID from the logged "join" event.
+        $meetingid = $DB->get_field('bigbluebuttonbn_logs', 'meetingid', [
+            'courseid' => $course->id,
+            'bigbluebuttonbnid' => $instance->get_instance_id(),
+            'log' => 'Join',
+        ], MUST_EXIST);
+
+        $retrievedinstance = instance::get_from_meetingid($meetingid);
+        $this->assertEquals($cm->instance, $retrievedinstance->get_instance_id());
+        $this->assertEquals($cm->id, $retrievedinstance->get_cm_id());
+    }
+
+    /**
      * Ensure that invalid meetingids throw an appropriate exception.
      *
      * @dataProvider invalid_meetingid_provider
@@ -174,7 +204,7 @@ class instance_test extends advanced_testcase {
      *
      * @return \string[][]
      */
-    public function invalid_meetingid_provider(): array {
+    public static function invalid_meetingid_provider(): array {
         // Meeting IDs are in the formats:
         // - <meetingid[string]>-<courseid[number]>-<instanceid[number]>
         // - <meetingid[string]>-<courseid[number]>-<instanceid[number]>[<groupid[number]>]
@@ -284,7 +314,7 @@ class instance_test extends advanced_testcase {
      *
      * @return array
      */
-    public function is_currently_open_provider(): array {
+    public static function is_currently_open_provider(): array {
         return [
             'No opening or closing time set: Is open' => [null, null, true],
             'Opening time set in the past, no closing: Is open' => [-DAYSECS, null, true],
@@ -343,7 +373,7 @@ class instance_test extends advanced_testcase {
      */
     public function test_user_must_wait_to_join(bool $isadmin, bool $ismoderator, bool $haswaitingroom, bool $expected): void {
         $stub = $this->getMockBuilder(instance::class)
-            ->setMethods([
+            ->onlyMethods([
                 'get_instance_var',
                 'is_admin',
                 'is_moderator',
@@ -363,7 +393,7 @@ class instance_test extends advanced_testcase {
      *
      * @return array
      */
-    public function user_must_wait_to_join_provider(): array {
+    public static function user_must_wait_to_join_provider(): array {
         return [
             'Admins must never wait to join (waiting disabled)' => [true, false, false, false],
             'Admins must never wait to join (waiting enabled)' => [true, false, true, false],
@@ -389,7 +419,7 @@ class instance_test extends advanced_testcase {
         bool $expected
     ): void {
         $stub = $this->getMockBuilder(instance::class)
-            ->setMethods([
+            ->onlyMethods([
                 'is_admin',
                 'is_moderator',
             ])
@@ -407,7 +437,7 @@ class instance_test extends advanced_testcase {
      *
      * @return array
      */
-    public function does_current_user_count_towards_user_limit_provider(): array {
+    public static function does_current_user_count_towards_user_limit_provider(): array {
         return [
             'Admin does not count' => [true, false, false],
             'Moderator does not count' => [false, true, false],
@@ -426,7 +456,7 @@ class instance_test extends advanced_testcase {
      */
     public function test_get_current_user_password(bool $isadmin, bool $ismoderator, bool $expectedmodpassword): void {
         $stub = $this->getMockBuilder(instance::class)
-            ->setMethods([
+            ->onlyMethods([
                 'is_admin',
                 'is_moderator',
                 'get_moderator_password',
@@ -452,7 +482,7 @@ class instance_test extends advanced_testcase {
      *
      * @return array
      */
-    public function get_current_user_password_provider(): array {
+    public static function get_current_user_password_provider(): array {
         return [
             'Admin is a moderator' => [true, false, true],
             'Moderator is a moderator' => [false, true, true],
@@ -471,7 +501,7 @@ class instance_test extends advanced_testcase {
      */
     public function test_get_current_user_role(bool $isadmin, bool $ismoderator, bool $expectedmodrole): void {
         $stub = $this->getMockBuilder(instance::class)
-            ->setMethods([
+            ->onlyMethods([
                 'is_admin',
                 'is_moderator',
             ])
@@ -493,7 +523,7 @@ class instance_test extends advanced_testcase {
      *
      * @return array
      */
-    public function get_current_user_role_provider(): array {
+    public static function get_current_user_role_provider(): array {
         return [
             'Admin is a moderator' => [true, false, true],
             'Moderator is a moderator' => [false, true, true],
@@ -516,7 +546,7 @@ class instance_test extends advanced_testcase {
         bool $expected
     ): void {
         $stub = $this->getMockBuilder(instance::class)
-            ->setMethods([
+            ->onlyMethods([
                 'is_recorded',
                 'should_show_recording_button',
             ])
@@ -534,7 +564,7 @@ class instance_test extends advanced_testcase {
      *
      * @return array
      */
-    public function allow_recording_start_stop_provider(): array {
+    public static function allow_recording_start_stop_provider(): array {
         return [
             'Meeting is not recorded: No start/stop' => [false, false, false],
             'Meeting recorded, Buttons shown: Allow' => [true, true, true],
@@ -563,7 +593,7 @@ class instance_test extends advanced_testcase {
      *
      * @covers ::get_guest_access_url
      */
-    public function test_get_guest_access_url() {
+    public function test_get_guest_access_url(): void {
         global $CFG;
         $this->resetAfterTest();
         ['record' => $record ] = $this->get_test_instance(['guestallowed' => true]);
@@ -577,7 +607,7 @@ class instance_test extends advanced_testcase {
      *
      * @covers ::is_guest_allowed
      */
-    public function test_is_guest_allowed() {
+    public function test_is_guest_allowed(): void {
         global $CFG;
         $this->resetAfterTest();
         ['record' => $record ] = $this->get_test_instance(['guestallowed' => true]);
@@ -593,7 +623,7 @@ class instance_test extends advanced_testcase {
      *
      * @covers ::get_instance_info_retriever
      */
-    public function test_get_instance_info_retriever() {
+    public function test_get_instance_info_retriever(): void {
         $this->resetAfterTest();
         [
             'record' => $record,
@@ -602,7 +632,6 @@ class instance_test extends advanced_testcase {
         $instance = instance::get_from_instanceid($record->id);
         $instancereflection = new \ReflectionClass($instance);
         $getinstanceinforetriever = $instancereflection->getMethod('get_instance_info_retriever');
-        $getinstanceinforetriever->setAccessible(true);
         $this->assertInstanceOf('\mod_bigbluebuttonbn\instance',
             $getinstanceinforetriever->invoke($instance, $record->id, instance::IDTYPE_INSTANCEID));
         $this->assertEquals($cm->id, $instance->get_cm_id());

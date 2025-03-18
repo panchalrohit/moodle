@@ -99,8 +99,9 @@ function get_questions_category(object $category, bool $noparent, bool $recurse 
 
     // Iterate through questions, getting stuff we need.
     $qresults = [];
-    foreach($questions as $key => $question) {
+    foreach ($questions as $question) {
         $question->export_process = $export;
+        $question->categoryobject = $category;
         $qtype = question_bank::get_qtype($question->qtype, false);
         if ($export && $qtype->name() === 'missingtype') {
             // Unrecognised question type. Skip this question when exporting.
@@ -114,78 +115,23 @@ function get_questions_category(object $category, bool $noparent, bool $recurse 
 }
 
 /**
- * Checks whether this is the only child of a top category in a context.
- *
- * @param int $categoryid a category id.
- * @return bool
- * @deprecated since Moodle 4.0 MDL-71585
- * @see qbank_managecategories\helper
- * @todo Final deprecation on Moodle 4.4 MDL-72438
- */
-function question_is_only_child_of_top_category_in_context($categoryid) {
-    debugging('Function question_is_only_child_of_top_category_in_context()
-    has been deprecated and moved to qbank_managecategories plugin,
-    Please use qbank_managecategories\helper::question_is_only_child_of_top_category_in_context() instead.',
-        DEBUG_DEVELOPER);
-    return \qbank_managecategories\helper::question_is_only_child_of_top_category_in_context($categoryid);
-}
-
-/**
- * Checks whether the category is a "Top" category (with no parent).
- *
- * @param int $categoryid a category id.
- * @return bool
- * @deprecated since Moodle 4.0 MDL-71585
- * @see qbank_managecategories\helper
- * @todo Final deprecation on Moodle 4.4 MDL-72438
- */
-function question_is_top_category($categoryid) {
-    debugging('Function question_is_top_category() has been deprecated and moved to qbank_managecategories plugin,
-    Please use qbank_managecategories\helper::question_is_top_category() instead.', DEBUG_DEVELOPER);
-    return \qbank_managecategories\helper::question_is_top_category($categoryid);
-}
-
-/**
- * Ensures that this user is allowed to delete this category.
- *
- * @param int $todelete a category id.
- * @deprecated since Moodle 4.0 MDL-71585
- * @see qbank_managecategories\helper
- * @todo Final deprecation on Moodle 4.4 MDL-72438
- */
-function question_can_delete_cat($todelete) {
-    debugging('Function question_can_delete_cat() has been deprecated and moved to qbank_managecategories plugin,
-    Please use qbank_managecategories\helper::question_can_delete_cat() instead.', DEBUG_DEVELOPER);
-    \qbank_managecategories\helper::question_can_delete_cat($todelete);
-}
-
-/**
  * Common setup for all pages for editing questions.
  * @param string $baseurl the name of the script calling this funciton. For examle 'qusetion/edit.php'.
  * @param string $edittab code for this edit tab
- * @param bool $requirecmid require cmid? default false
+ * @param bool $requirecmid This parameter has been deprecated since 4.5 and should not be used anymore.
  * @param bool $unused no longer used, do no pass
  * @return array $thispageurl, $contexts, $cmid, $cm, $module, $pagevars
  */
-function question_edit_setup($edittab, $baseurl, $requirecmid = false, $unused = null) {
+function question_edit_setup($edittab, $baseurl, $requirecmid = null, $unused = null) {
     global $PAGE;
 
-    if ($unused !== null) {
+    if ($unused !== null || $requirecmid !== null) {
         debugging('Deprecated argument passed to question_edit_setup()', DEBUG_DEVELOPER);
     }
 
     $params = [];
 
-    if ($requirecmid) {
-        $params['cmid'] = required_param('cmid', PARAM_INT);
-    } else {
-        $params['cmid'] = optional_param('cmid', null, PARAM_INT);
-    }
-
-    if (!$params['cmid']) {
-        $params['courseid'] = required_param('courseid', PARAM_INT);
-    }
-
+    $params['cmid'] = required_param('cmid', PARAM_INT);
     $params['qpage'] = optional_param('qpage', null, PARAM_INT);
 
     // Pass 'cat' from page to page and when 'category' comes from a drop down menu
@@ -213,14 +159,12 @@ function question_edit_setup($edittab, $baseurl, $requirecmid = false, $unused =
  * Common function for building the generic resources required by the
  * editing questions pages.
  *
- * Either a cmid or a course id must be provided as keys in $params or
- * an exception will be thrown. All other params are optional and will have
- * sane default applied if not provided.
+ * A cmid must be provided as a key in $params or an exception will be thrown.
+ * All other params are optional and will have sane default applied if not provided.
  *
  * The acceptable keys for $params are:
  * [
  *      'cmid' => PARAM_INT,
- *      'courseid' => PARAM_INT,
  *      'qpage' => PARAM_INT,
  *      'cat' => PARAM_SEQUENCE,
  *      'category' => PARAM_SEQUENCE,
@@ -255,7 +199,6 @@ function question_build_edit_resources($edittab, $baseurl, $params,
     ];
     $paramtypes = [
         'cmid' => PARAM_INT,
-        'courseid' => PARAM_INT,
         'qpage' => PARAM_INT,
         'cat' => PARAM_SEQUENCE,
         'category' => PARAM_SEQUENCE,
@@ -275,7 +218,23 @@ function question_build_edit_resources($edittab, $baseurl, $params,
         if (!is_array($params['filter'])) {
             $params['filter'] = json_decode($params['filter'], true);
         }
-        $cleanparams['filter'] = $params['filter'];
+        $cleanparams['filter'] = [];
+        foreach ($params['filter'] as $filterkey => $filtervalue) {
+            if ($filterkey == 'jointype') {
+                $cleanparams['filter']['jointype'] = clean_param($filtervalue, PARAM_INT);
+            } else {
+                if (!array_key_exists('name', $filtervalue)) {
+                    $filtervalue['name'] = $filterkey;
+                }
+                $cleanfilter = [
+                    'name' => clean_param($filtervalue['name'], PARAM_ALPHANUM),
+                    'jointype' => clean_param($filtervalue['jointype'], PARAM_INT),
+                    'values' => $filtervalue['values'],
+                    'filteroptions' => $filtervalue['filteroptions'] ?? [],
+                ];
+                $cleanparams['filter'][$filterkey] = $cleanfilter;
+            }
+        }
     }
 
     if (isset($params['sortdata'])) {
@@ -283,28 +242,20 @@ function question_build_edit_resources($edittab, $baseurl, $params,
     }
 
     $cmid = $cleanparams['cmid'];
-    $courseid = $cleanparams['courseid'];
     $qpage = $cleanparams['qpage'] ?: -1;
     $cat = $cleanparams['cat'] ?: 0;
     $category = $cleanparams['category'] ?: 0;
     $qperpage = $cleanparams['qperpage'];
     $cpage = $cleanparams['cpage'] ?: 1;
 
-    if (is_null($cmid) && is_null($courseid)) {
-        throw new \moodle_exception('Must provide a cmid or courseid');
+    if (is_null($cmid)) {
+        throw new \moodle_exception('Must provide a cmid');
     }
 
-    if ($cmid) {
-        list($module, $cm) = get_module_from_cmid($cmid);
-        $courseid = $cm->course;
-        $thispageurl->params(compact('cmid'));
-        $thiscontext = context_module::instance($cmid);
-    } else {
-        $module = null;
-        $cm = null;
-        $thispageurl->params(compact('courseid'));
-        $thiscontext = context_course::instance($courseid);
-    }
+    list($module, $cm) = get_module_from_cmid($cmid);
+    $courseid = $cm->course;
+    $thispageurl->params(compact('cmid'));
+    $thiscontext = context_module::instance($cmid);
 
     if (defined('AJAX_SCRIPT') && AJAX_SCRIPT) {
         // For AJAX, we don't need to set up the course page for output.
@@ -353,7 +304,7 @@ function question_build_edit_resources($edittab, $baseurl, $params,
         $pagevars['qperpage'] = $qperpage ?? $defaultquestionsperpage;
     }
 
-    $defaultcategory = question_make_default_categories($contexts->all());
+    $defaultcategory = question_get_default_category($contexts->lowest()->id, true);
 
     $contextlistarr = [];
     foreach ($contexts->having_one_edit_tab_cap($edittab) as $context){
@@ -483,59 +434,5 @@ function require_login_in_context($contextorid = null){
 
     } else {
         require_login();
-    }
-}
-
-/**
- * Print a form to let the user choose which question type to add.
- * When the form is submitted, it goes to the question.php script.
- * @param $hiddenparams hidden parameters to add to the form, in addition to
- *      the qtype radio buttons.
- * @param $allowedqtypes optional list of qtypes that are allowed. If given, only
- *      those qtypes will be shown. Example value array('description', 'multichoice').
- * @deprecated since Moodle 4.0
- * @see \qbank_editquestion\editquestion_helper::print_choose_qtype_to_add_form()
- * @todo Final deprecation of this class in moodle 4.4 MDL-72438
- */
-function print_choose_qtype_to_add_form($hiddenparams, array $allowedqtypes = null, $enablejs = true) {
-    debugging('Function print_choose_qtype_to_add_form() is deprecated,
-     please use \qbank_editquestion\editquestion_helper::print_choose_qtype_to_add_form() instead.', DEBUG_DEVELOPER);
-    global $CFG, $PAGE, $OUTPUT;
-
-    $chooser = \qbank_editquestion\qbank_chooser::get($PAGE->course, $hiddenparams, $allowedqtypes);
-    $renderer = $PAGE->get_renderer('question', 'bank');
-
-    return $renderer->render($chooser);
-}
-
-/**
- * Print a button for creating a new question. This will open question/addquestion.php,
- * which in turn goes to question/question.php before getting back to $params['returnurl']
- * (by default the question bank screen).
- *
- * @param int $categoryid The id of the category that the new question should be added to.
- * @param array $params Other paramters to add to the URL. You need either $params['cmid'] or
- *      $params['courseid'], and you should probably set $params['returnurl']
- * @param string $caption the text to display on the button.
- * @param string $tooltip a tooltip to add to the button (optional).
- * @param bool $disabled if true, the button will be disabled.
- * @deprecated since Moodle 4.0
- * @see \qbank_editquestion\editquestion_helper::create_new_question_button()
- * @todo Final deprecation of this class in moodle 4.4 MDL-72438
- */
-function create_new_question_button($categoryid, $params, $caption, $tooltip = '', $disabled = false) {
-    debugging('Function create_new_question_button() has been deprecated and moved to bank/editquestion,
-     please use qbank_editquestion\editquestion_helper::create_new_question_button() instead.', DEBUG_DEVELOPER);
-    global $CFG, $PAGE, $OUTPUT;
-    static $choiceformprinted = false;
-    $params['category'] = $categoryid;
-    $url = new moodle_url('/question/bank/editquestion/addquestion.php', $params);
-    echo $OUTPUT->single_button($url, $caption, 'get', array('disabled'=>$disabled, 'title'=>$tooltip));
-
-    if (!$choiceformprinted) {
-        echo '<div id="qtypechoicecontainer">';
-        echo print_choose_qtype_to_add_form(array());
-        echo "</div>\n";
-        $choiceformprinted = true;
     }
 }

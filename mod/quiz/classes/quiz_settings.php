@@ -65,6 +65,9 @@ class quiz_settings {
     /** @var bool whether the current user has capability mod/quiz:preview. */
     protected $ispreviewuser = null;
 
+    /** @var grade_calculator|null grade calculator for this quiz. */
+    protected ?grade_calculator $gradecalculator = null;
+
     // Constructor =============================================================.
 
     /**
@@ -110,7 +113,7 @@ class quiz_settings {
      * @param int|null $userid the the userid (optional). If passed, relevant overrides are applied.
      * @return quiz_settings the new quiz settings object.
      */
-    public static function create(int $quizid, int $userid = null): self {
+    public static function create(int $quizid, ?int $userid = null): self {
         $quiz = access_manager::load_quiz_and_settings($quizid);
         [$course, $cm] = get_course_and_cm_from_instance($quiz, 'quiz');
 
@@ -124,7 +127,7 @@ class quiz_settings {
      * @param int|null $userid the the userid (optional). If passed, relevant overrides are applied.
      * @return quiz_settings the new quiz settings object.
      */
-    public static function create_for_cmid(int $cmid, int $userid = null): self {
+    public static function create_for_cmid(int $cmid, ?int $userid = null): self {
         [$course, $cm] = get_course_and_cm_from_cmid($cmid, 'quiz');
         $quiz = access_manager::load_quiz_and_settings($cm->instance);
 
@@ -393,7 +396,11 @@ class quiz_settings {
      * @return grade_calculator
      */
     public function get_grade_calculator(): grade_calculator {
-        return grade_calculator::create($this);
+        if ($this->gradecalculator === null) {
+            $this->gradecalculator = grade_calculator::create($this);
+        }
+
+        return $this->gradecalculator;
     }
 
     /**
@@ -497,9 +504,15 @@ class quiz_settings {
      * @param int $when One of the display_options::DURING,
      *      IMMEDIATELY_AFTER, LATER_WHILE_OPEN or AFTER_CLOSE constants.
      * @param bool $short if true, return a shorter string.
+     * @param int|null $attemptsubmittime time this attempt was submitted. (Optional, but should be given.)
      * @return string an appropraite message.
      */
-    public function cannot_review_message($when, $short = false) {
+    public function cannot_review_message($when, $short = false, ?int $attemptsubmittime = null) {
+
+        if ($attemptsubmittime === null) {
+            debugging('It is recommended that you pass $attemptsubmittime to cannot_review_message', DEBUG_DEVELOPER);
+            $attemptsubmittime = time(); // This will be approximately right, which is enough for the one place were it is used.
+        }
 
         if ($short) {
             $langstrsuffix = 'short';
@@ -509,17 +522,30 @@ class quiz_settings {
             $dateformat = '';
         }
 
-        if ($when == display_options::DURING ||
-                $when == display_options::IMMEDIATELY_AFTER) {
-            return '';
+        $reviewfrom = 0;
+        switch ($when) {
+            case display_options::DURING:
+                return '';
+
+            case display_options::IMMEDIATELY_AFTER:
+                if ($this->quiz->reviewattempt & display_options::LATER_WHILE_OPEN) {
+                    $reviewfrom = $attemptsubmittime + quiz_attempt::IMMEDIATELY_AFTER_PERIOD;
+                    break;
+                }
+                // Fall through.
+
+            case display_options::LATER_WHILE_OPEN:
+                if ($this->quiz->timeclose && ($this->quiz->reviewattempt & display_options::AFTER_CLOSE)) {
+                    $reviewfrom = $this->quiz->timeclose;
+                    break;
+                }
+        }
+
+        if ($reviewfrom) {
+            return get_string('noreviewuntil' . $langstrsuffix, 'quiz',
+                    userdate($reviewfrom, $dateformat));
         } else {
-            if ($when == display_options::LATER_WHILE_OPEN && $this->quiz->timeclose &&
-                    $this->quiz->reviewattempt & display_options::AFTER_CLOSE) {
-                return get_string('noreviewuntil' . $langstrsuffix, 'quiz',
-                        userdate($this->quiz->timeclose, $dateformat));
-            } else {
-                return get_string('noreview' . $langstrsuffix, 'quiz');
-            }
+            return get_string('noreview' . $langstrsuffix, 'quiz');
         }
     }
 
@@ -602,5 +628,17 @@ class quiz_settings {
         sort($questiontypes);
 
         return $questiontypes;
+    }
+
+    /**
+     * Returns an override manager instance with context and quiz loaded.
+     *
+     * @return \mod_quiz\local\override_manager
+     */
+    public function get_override_manager(): \mod_quiz\local\override_manager {
+        return new \mod_quiz\local\override_manager(
+            quiz: $this->quiz,
+            context: $this->context
+        );
     }
 }

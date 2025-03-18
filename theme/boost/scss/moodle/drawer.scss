@@ -11,7 +11,8 @@ $drawer-bg-color: $gray-100 !default;
 $drawer-scroll-bg-track: $gray-100 !default;
 $drawer-shadow-color: rgba(0, 0, 0, .25) !default;
 
-:target {
+:target,
+:focus {
     scroll-margin-top: $fixed-header-y + 10px;
 }
 
@@ -47,6 +48,7 @@ $drawer-bg: darken($body-bg, 5%) !default;
     [data-region="drawer"] {
         padding: $drawer-padding-x $drawer-padding-y;
     }
+    .jsenabled .popover-process-monitor,
     .jsenabled .btn-footer-popover,
     .jsenabled .btn-footer-communication {
         @include transition(0.2s);
@@ -139,7 +141,7 @@ $right-drawer-width: 320px;
     }
 }
 
-@include media-breakpoint-down(sm) {
+@include media-breakpoint-down(md) {
     [data-region=right-hand-drawer] {
         &.drawer {
             top: 0;
@@ -166,7 +168,7 @@ $right-drawer-width: 320px;
     // and lower to the message drawer.
     z-index: $zindex-sticky - 5;
 
-    @include media-breakpoint-down(md) {
+    @include media-breakpoint-down(lg) {
         // In small screens the drawer goes over the top navbar with a modal with a backdrop effect.
         z-index: $zindex-fixed + 5;
     }
@@ -223,6 +225,12 @@ $right-drawer-width: 320px;
             bottom: 0;
         }
     }
+    &.drawer-primary {
+        .drawertoggle {
+            margin-right: 16px;
+            margin-left: 5px;
+        }
+    }
 }
 
 .drawer {
@@ -258,12 +266,18 @@ $right-drawer-width: 320px;
     height: $navbar-height;
     display: flex;
     align-items: center;
+    .sitename {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        margin-right: 16px;
+    }
 }
 .drawer.scrolled .drawerheader {
     box-shadow: 0 8px 11px -7px $drawer-shadow-color;
 }
 
-@include media-breakpoint-down(md) {
+@include media-breakpoint-down(lg) {
     .drawer-md {
         display: block;
         @include drawer();
@@ -271,7 +285,7 @@ $right-drawer-width: 320px;
     }
 }
 
-@include media-breakpoint-down(sm) {
+@include media-breakpoint-down(md) {
     .drawer-sm {
         display: block;
         @include drawer();

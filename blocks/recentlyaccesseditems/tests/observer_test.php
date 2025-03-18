@@ -29,7 +29,7 @@ require_once($CFG->dirroot . '/mod/assign/tests/generator.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @since      Moodle 3.6
  */
-class observer_test extends \advanced_testcase {
+final class observer_test extends \advanced_testcase {
     use \mod_assign_test_generator;
 
     /** @var string Table name. */
@@ -56,14 +56,15 @@ class observer_test extends \advanced_testcase {
     /** @var \stdClass course glossary. */
     protected $glossary;
 
-    /** @var \stdClass course chat. */
-    protected $chat;
+    /** @var \stdClass course assignment. */
+    protected $assign;
 
     /**
      * Set up for every test
      */
     public function setUp(): void {
         global $DB;
+        parent::setUp();
 
         $this->resetAfterTest();
         $this->setAdminUser();
@@ -87,7 +88,7 @@ class observer_test extends \advanced_testcase {
         // Create items.
         $this->forum = $this->getDataGenerator()->create_module('forum', array('course' => $this->course));
         $this->glossary = $this->getDataGenerator()->create_module('glossary', array('course' => $this->course));
-        $this->chat = $this->getDataGenerator()->create_module('chat', array('course' => $this->course));
+        $this->assign = $this->getDataGenerator()->create_module('assign', ['course' => $this->course]);
     }
 
     /**
@@ -95,7 +96,7 @@ class observer_test extends \advanced_testcase {
      *
      * When items events are triggered they are stored in the block_recentlyaccesseditems table.
      */
-    public function test_item_view_recorded_testcase() {
+    public function test_item_view_recorded_testcase(): void {
         global $DB;
 
         // Empty table at the beggining.
@@ -108,28 +109,28 @@ class observer_test extends \advanced_testcase {
                 'objectid' => $this->forum->id));
         $event->trigger();
 
-        // Student access chat activity.
+        // Student access assignment activity.
         $this->setUser($this->student);
-        $event1 = \mod_chat\event\course_module_viewed::create(array('context' => \context_module::instance($this->chat->cmid),
-                'objectid' => $this->chat->id));
+        $event1 = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($this->assign->cmid),
+                'objectid' => $this->assign->id]);
         $event1->trigger();
 
         $records = $DB->count_records($this->table, array('userid' => $this->teacher->id, 'courseid' => $this->course->id,
                 'cmid' => $this->forum->cmid));
         $this->assertEquals(1, $records);
 
-        $records = $DB->count_records($this->table, array('userid' => $this->student->id, 'courseid' => $this->course->id, 'cmid' =>
-                $this->chat->cmid));
+        $records = $DB->count_records($this->table, ['userid' => $this->student->id, 'courseid' => $this->course->id, 'cmid' =>
+                $this->assign->cmid]);
         $this->assertEquals(1, $records);
 
         $this->waitForSecond();
-        // Student access chat activity again after 1 second (no new record created, timeaccess updated).
-        $event2 = \mod_chat\event\course_module_viewed::create(array('context' => \context_module::instance($this->chat->cmid),
-                'objectid' => $this->chat->id));
+        // Student access assignment activity again after 1 second (no new record created, timeaccess updated).
+        $event2 = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($this->assign->cmid),
+                'objectid' => $this->assign->id]);
         $event2->trigger();
 
-        $records = $DB->get_records($this->table, array('userid' => $this->student->id, 'courseid' => $this->course->id, 'cmid' =>
-                $this->chat->cmid));
+        $records = $DB->get_records($this->table, ['userid' => $this->student->id, 'courseid' => $this->course->id, 'cmid' =>
+                $this->assign->cmid]);
         $this->assertCount(1, $records);
         $this->assertEquals($event2->timecreated, array_shift($records)->timeaccess);
 
@@ -140,7 +141,7 @@ class observer_test extends \advanced_testcase {
      *
      * When a course module is removed, the records associated in the block_recentlyaccesseditems table are deleted.
      */
-    public function test_item_delete_record_testcase() {
+    public function test_item_delete_record_testcase(): void {
         global $DB;
 
         // Empty table at the beggining.
@@ -153,15 +154,15 @@ class observer_test extends \advanced_testcase {
                 'objectid' => $this->forum->id));
         $event->trigger();
 
-        // Teacher access chat activity.
-        $event = \mod_chat\event\course_module_viewed::create(array('context' => \context_module::instance($this->chat->cmid),
-                'objectid' => $this->chat->id));
+        // Teacher access assignment activity.
+        $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($this->assign->cmid),
+                'objectid' => $this->assign->id]);
         $event->trigger();
 
-        // Student access chat activity.
+        // Student access assignment activity.
         $this->setUser($this->student);
-        $event = \mod_chat\event\course_module_viewed::create(array('context' => \context_module::instance($this->chat->cmid),
-                'objectid' => $this->chat->id));
+        $event = \mod_assign\event\course_module_viewed::create(['context' => \context_module::instance($this->assign->cmid),
+                'objectid' => $this->assign->id]);
         $event->trigger();
 
         // Student access forum activity.
@@ -174,7 +175,7 @@ class observer_test extends \advanced_testcase {
         course_delete_module($this->forum->cmid);
         $records = $DB->count_records($this->table, array('cmid' => $this->forum->cmid));
         $this->assertEquals(0, $records);
-        $records = $DB->count_records($this->table, array('cmid' => $this->chat->cmid));
+        $records = $DB->count_records($this->table, ['cmid' => $this->assign->cmid]);
         $this->assertEquals(2, $records);
     }
 }

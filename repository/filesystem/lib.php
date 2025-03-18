@@ -99,7 +99,7 @@ class repository_filesystem extends repository {
         $fileslist = array();
         $dirslist = array();
         if ($dh = opendir($abspath)) {
-            while (($file = readdir($dh)) != false) {
+            while (false !== ($file = readdir($dh))) {
                 if ($file != '.' and $file != '..') {
                     if (is_file($abspath . $file)) {
                         $fileslist[] = $file;
@@ -108,6 +108,7 @@ class repository_filesystem extends repository {
                     }
                 }
             }
+            closedir($dh);
         }
         core_collator::asort($fileslist, core_collator::SORT_NATURAL);
         core_collator::asort($dirslist, core_collator::SORT_NATURAL);
@@ -612,7 +613,7 @@ class repository_filesystem extends repository {
      * @param bool $forcedownload If true (default false), forces download of file rather than view in browser/plugin
      * @param array $options additional options affecting the file serving
      */
-    public function send_file($storedfile, $lifetime=null , $filter=0, $forcedownload=false, array $options = null) {
+    public function send_file($storedfile, $lifetime=null , $filter=0, $forcedownload=false, ?array $options = null) {
         $reference = $storedfile->get_reference();
         $file = $this->get_rootpath() . ltrim($reference, '/');
         if ($this->is_in_repository($reference) && is_readable($file)) {

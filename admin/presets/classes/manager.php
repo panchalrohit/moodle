@@ -761,8 +761,8 @@ class manager {
     public function delete_preset(int $presetid): void {
         global $DB;
 
-        // Check the preset exists.
-        $preset = $DB->get_record('adminpresets', ['id' => $presetid]);
+        // Check the preset exists (cannot delete the pre-installed core "Starter" and "Full" presets).
+        $preset = $DB->get_record('adminpresets', ['id' => $presetid, 'iscore' => self::NONCORE_PRESET]);
         if (!$preset) {
             throw new moodle_exception('errordeleting', 'core_adminpresets');
         }
@@ -1132,6 +1132,11 @@ class manager {
                 'visiblename' => $visiblename,
                 'visiblevalue' => $visiblevalue,
             ];
+
+            if ($plugininfo && $plugininfo->is_deprecated()) {
+                $skipped[] = $data;
+                continue;
+            }
 
             if ($pluginclass == '\core\plugininfo\orphaned') {
                 $skipped[] = $data;

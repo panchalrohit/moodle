@@ -25,6 +25,7 @@ use core_question\local\bank\column_base;
 use core_question\local\bank\column_manager_base;
 use core_question\local\bank\question_edit_contexts;
 use core_question\local\bank\view;
+use core_question\local\bank\question_bank_helper;
 use qbank_columnsortorder\local\bank\column_action_move;
 use qbank_columnsortorder\local\bank\column_action_remove;
 use qbank_columnsortorder\local\bank\column_action_resize;
@@ -119,7 +120,7 @@ class column_manager extends column_manager_base {
      * @param ?array $columns Column order to set. Null value clears the setting.
      * @param bool $global save this as a global default, rather than a user preference?
      */
-    public static function set_column_order(?array $columns, bool $global = false) : void {
+    public static function set_column_order(?array $columns, bool $global = false): void {
         if (!is_null($columns)) {
             $columns = implode(',', $columns);
         }
@@ -132,7 +133,7 @@ class column_manager extends column_manager_base {
      * @param ?array $columns List of hidden columns. Null value clears the setting.
      * @param bool $global save this as a global default, rather than a user preference?
      */
-    public static function set_hidden_columns(?array $columns, bool $global = false) : void {
+    public static function set_hidden_columns(?array $columns, bool $global = false): void {
         if (!is_null($columns)) {
             $columns = implode(',', $columns);
         }
@@ -145,7 +146,7 @@ class column_manager extends column_manager_base {
      * @param ?string $sizes columns with width. Null value clears the setting.
      * @param bool $global save this as a global default, rather than a user preference?
      */
-    public static function set_column_size(?string $sizes, bool $global = false) : void {
+    public static function set_column_size(?string $sizes, bool $global = false): void {
         self::save_preference('colsize', $sizes, $global);
     }
 
@@ -172,16 +173,18 @@ class column_manager extends column_manager_base {
      */
     public function get_questionbank(): view {
         $course = (object) ['id' => 0];
-        $context = context_system::instance();
+        $previewbank = question_bank_helper::get_preview_open_instance_type(true);
+        $cm = $previewbank->get_course_module_record();
+        $context = \context_module::instance($previewbank->id);
         $contexts = new question_edit_contexts($context);
-        $category = question_make_default_categories($contexts->all());
+        $category = question_get_default_category($contexts->lowest()->id, true);
         $params = ['cat' => $category->id . ',' . $context->id];
         // Dummy call to get the objects without error.
         $questionbank = new preview_view(
             $contexts,
             new moodle_url('/question/bank/columnsortorder/sortcolumns.php'),
             $course,
-            null,
+            $cm,
             $params
         );
         return $questionbank;
@@ -214,15 +217,12 @@ class column_manager extends column_manager_base {
      * @return array
      */
     public function get_disabled_columns(): array {
+        $result = $this->create_column_objects(array_keys($this->disabledcolumns));
         $disabled = [];
-        if ($this->disabledcolumns) {
-            foreach (array_keys($this->disabledcolumns) as $column) {
-                [$classname, $columnname] = explode(column_base::ID_SEPARATOR, $column, 2);
-                $columnobject = $classname::from_column_name($this->get_questionbank(), $columnname);
-                $disabled[$column] = (object) [
-                    'disabledname' => $columnobject->get_title(),
-                ];
-            }
+        foreach ($result as $column => $columnobject) {
+            $disabled[$column] = (object) [
+                'disabledname' => $columnobject->get_title(),
+            ];
         }
         return $disabled;
     }
@@ -368,11 +368,32 @@ class column_manager extends column_manager_base {
      * @return array
      */
     public function get_hidden_columns(): array {
-        return array_reduce($this->hiddencolumns, function($result, $hiddencolumn) {
-            [$columnclass, $columnname] = explode(column_base::ID_SEPARATOR, $hiddencolumn, 2);
-            $result[$hiddencolumn] = $columnclass::from_column_name($this->get_questionbank(), $columnname)->get_title();
-            return $result;
-        }, []);
+        $result = $this->create_column_objects($this->hiddencolumns);
+        $hidden = [];
+        foreach ($result as $column => $columnobject) {
+            $hidden[$column] = $columnobject->get_title();
+        }
+        return $hidden;
+    }
+
+    /**
+     * Returns an array of column objects.
+     *
+     * @param array $columnsnames Array of columns.
+     * @return column_base[] Array of $columnsname => $columnobject
+     */
+    public function create_column_objects(array $columnsnames): array {
+        $result = [];
+        foreach ($columnsnames as $column) {
+            [$columnclass, $columnname] = explode(column_base::ID_SEPARATOR, $column, 2);
+            if (class_exists($columnclass)) {
+                $columnobject = $columnclass::from_column_name($this->get_questionbank(), $columnname, true);
+                if ($columnobject != null) {
+                    $result[$column] = $columnobject;
+                }
+            }
+        }
+        return $result;
     }
 
     public function get_column_width(column_base $column): string {

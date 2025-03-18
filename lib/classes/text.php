@@ -75,13 +75,17 @@ class core_text {
     }
 
     /**
-     * Reset internal textlib caches.
-     * @static
      * @deprecated since Moodle 4.0. See MDL-53544.
-     * @todo To be removed in Moodle 4.4 - MDL-71748
      */
-    public static function reset_caches() {
-        debugging("reset_caches() is deprecated. Typo3 has been removed and caches aren't used anymore.", DEBUG_DEVELOPER);
+    #[\core\attribute\deprecated(
+        'core_text::reset_caches',
+        since: '4.0',
+        reason:'Typo3 has been removed and caches aren\'t used anymore.',
+        mdl: 'MDL-53544',
+        final: true,
+    )]
+    public static function reset_caches(): void {
+        \core\deprecation::emit_deprecation_if_present([self::class, __FUNCTION__]);
     }
 
     /**
@@ -446,27 +450,15 @@ class core_text {
      * @return array with (html entity => utf-8) elements
      */
     protected static function get_entities_table() {
-        static $trans_tbl = null;
+        static $translationtable = null;
 
         // Generate/create $trans_tbl
-        if (!isset($trans_tbl)) {
-            if (version_compare(phpversion(), '5.3.4') < 0) {
-                $trans_tbl = array();
-                foreach (get_html_translation_table(HTML_ENTITIES, ENT_COMPAT) as $val=>$key) {
-                    $trans_tbl[$key] = self::convert($val, 'ISO-8859-1', 'utf-8');
-                }
-
-            } else if (version_compare(phpversion(), '5.4.0') < 0) {
-                $trans_tbl = get_html_translation_table(HTML_ENTITIES, ENT_COMPAT, 'UTF-8');
-                $trans_tbl = array_flip($trans_tbl);
-
-            } else {
-                $trans_tbl = get_html_translation_table(HTML_ENTITIES, ENT_COMPAT | ENT_HTML401, 'UTF-8');
-                $trans_tbl = array_flip($trans_tbl);
-            }
+        if (!isset($translationtable)) {
+            $translationtable = get_html_translation_table(HTML_ENTITIES, ENT_COMPAT | ENT_HTML401, 'UTF-8');
+            $translationtable = array_flip($translationtable);
         }
 
-        return $trans_tbl;
+        return $translationtable;
     }
 
     /**

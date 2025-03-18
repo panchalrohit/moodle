@@ -33,7 +33,7 @@ if (isset($_SERVER['REMOTE_ADDR'])) {
 }
 
 // We want to know about all problems.
-error_reporting(E_ALL | E_STRICT);
+error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('log_errors', '1');
 
@@ -91,7 +91,7 @@ if (!defined('PHPUNIT_LONGTEST')) {
 }
 
 // Remove error handling overrides done in config.php.
-error_reporting(E_ALL | E_STRICT);
+error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('log_errors', '1');
 set_time_limit(0); // No time limit in CLI scripts, user may cancel execution.
@@ -217,7 +217,7 @@ unset($allowed);
 unset($productioncfg);
 
 // Force the same CFG settings in all sites.
-$CFG->debug = (E_ALL | E_STRICT); // Can not use DEBUG_DEVELOPER yet.
+$CFG->debug = (E_ALL); // Can not use DEBUG_DEVELOPER yet.
 $CFG->debugdeveloper = true;
 $CFG->debugdisplay = 1;
 error_reporting($CFG->debug);
@@ -262,6 +262,7 @@ if (PHPUNIT_UTIL) {
 
 // Make sure the hook manager gets initialised before anybody tries to override callbacks,
 // this is not using caches intentionally to help with development.
+// Note: We cannot use DI at this point in the bootstrap either.
 \core\hook\manager::get_instance();
 
 // Is database and dataroot ready for testing?

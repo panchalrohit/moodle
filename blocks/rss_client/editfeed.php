@@ -85,7 +85,7 @@ class feed_edit_form extends moodleform {
         $rss->set_timeout(10);
         $rss->set_feed_url($data['url']);
         $rss->set_autodiscovery_cache_duration(0);
-        $rss->set_autodiscovery_level(SIMPLEPIE_LOCATOR_NONE);
+        $rss->set_autodiscovery_level(\SimplePie\SimplePie::LOCATOR_NONE);
         $rss->init();
 
         if ($rss->error()) {
@@ -129,7 +129,7 @@ class feed_edit_form extends moodleform {
     public static function autodiscover_feed_url($url){
             $rss =  new moodle_simplepie();
             $rss->set_feed_url($url);
-            $rss->set_autodiscovery_level(SIMPLEPIE_LOCATOR_ALL);
+            $rss->set_autodiscovery_level(\SimplePie\SimplePie::LOCATOR_ALL);
             // When autodiscovering an RSS feed, simplepie will try lots of
             // rss links on a page, so set the timeout high
             $rss->set_timeout(20);
@@ -180,7 +180,18 @@ $PAGE->set_pagelayout('admin');
 
 if ($rssid) {
     $isadding = false;
-    $rssrecord = $DB->get_record('block_rss_client', array('id' => $rssid), '*', MUST_EXIST);
+
+    if ($managesharedfeeds) {
+        $select = 'id = :id AND (userid = :userid OR shared = 1)';
+    } else {
+        $select = 'id = :id AND userid = :userid';
+    }
+
+    $rssrecord = $DB->get_record_select('block_rss_client', $select, [
+        'id' => $rssid,
+        'userid' => $USER->id,
+    ], '*', MUST_EXIST);
+
 } else {
     $isadding = true;
     $rssrecord = new stdClass;

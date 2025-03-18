@@ -64,7 +64,7 @@ class qtype_gapselect_edit_form_base_testable extends \qtype_gapselect_edit_form
  * @copyright  2012 The Open University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class edit_form_test extends \advanced_testcase {
+final class edit_form_test extends \advanced_testcase {
 
     /**
      * Helper method.
@@ -80,11 +80,13 @@ class edit_form_test extends \advanced_testcase {
         $this->setAdminUser();
         $this->resetAfterTest();
 
-        $syscontext = \context_system::instance();
-        $category = question_make_default_categories(array($syscontext));
+        $course = self::getDataGenerator()->create_course();
+        $qbank = self::getDataGenerator()->create_module('qbank', ['course' => $course->id]);
+        $bankcontext = \context_module::instance($qbank->cmid);
+        $category = question_get_default_category($bankcontext->id, true);
         $fakequestion = new \stdClass();
         $fakequestion->qtype = 'gapselect'; // Does not actually matter if this is wrong.
-        $fakequestion->contextid = $syscontext->id;
+        $fakequestion->contextid = $bankcontext->id;
         $fakequestion->createdby = 2;
         $fakequestion->category = $category->id;
         $fakequestion->questiontext = 'Test [[1]] question [[2]]';
@@ -96,12 +98,12 @@ class edit_form_test extends \advanced_testcase {
         $fakequestion->inputs = null;
 
         $form = new $classname(new \moodle_url('/'), $fakequestion, $category,
-                new \core_question\local\bank\question_edit_contexts($syscontext));
+                new \core_question\local\bank\question_edit_contexts($bankcontext));
 
         return [$form, $category];
     }
 
-    public function test_get_illegal_tag_error() {
+    public function test_get_illegal_tag_error(): void {
         list($form) = $this->get_form('\qtype_gapselect\form\qtype_gapselect_edit_form_base_testable');
 
         $this->assertEquals('', $form->get_illegal_tag_error('frog'));
@@ -142,11 +144,10 @@ class edit_form_test extends \advanced_testcase {
     /**
      * Test the form shows the right number of groups of choices.
      */
-    public function test_number_of_choice_groups() {
+    public function test_number_of_choice_groups(): void {
         list($form) = $this->get_form('qtype_gapselect_edit_form');
         // Use reflection to get the protected property we need.
         $property = new \ReflectionProperty('qtype_gapselect_edit_form', '_form');
-        $property->setAccessible(true);
         $mform = $property->getValue($form);
         $choices = $mform->getElement('choices[0]');
         $groupoptions = $choices->_elements[1];
@@ -156,7 +157,7 @@ class edit_form_test extends \advanced_testcase {
     /**
      * Test the form correctly validates the HTML allowed in choices.
      */
-    public function test_choices_validation() {
+    public function test_choices_validation(): void {
         list($form, $category) = $this->get_form('qtype_gapselect_edit_form');
 
         $submitteddata = [

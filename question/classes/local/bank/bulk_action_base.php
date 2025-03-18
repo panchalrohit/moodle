@@ -27,7 +27,7 @@ namespace core_question\local\bank;
  * @author     Safat Shahin <safatshahin@catalyst-au.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-abstract class bulk_action_base {
+abstract class bulk_action_base extends view_component {
 
     /**
      * Title of the bulk action.
@@ -70,17 +70,18 @@ abstract class bulk_action_base {
     }
 
     /**
-     * A unique key for the bulk action, this will be used in the api to identify the action data.
-     * Every bulk must have a unique key to perform the action as a part of the form post in the base view.
-     * When questions are selected, it will post according to the key its selected from the dropdown.
+     * Override if you want to load your own javascript.
      *
-     * @return string
-     * @deprecated since Moodle 4.1
-     * @see get_key()
-     * @todo Final deprecation on Moodle 4.5 MDL-72438
+     * @return void
+     */
+    public function initialise_javascript(): void {
+
+    }
+
+    /**
+     * @deprecated since Moodle 4.0
      */
     public function get_bulk_action_key() {
-        debugging(__FUNCTION__ . " is deprecated and should no longer be used. Please use get_key() instead.", DEBUG_DEVELOPER);
-        return $this->get_key();
+        throw new \coding_exception(__FUNCTION__ . '() has been removed.');
     }
 }

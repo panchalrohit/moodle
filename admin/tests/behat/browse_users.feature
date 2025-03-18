@@ -18,7 +18,7 @@ Feature: An administrator can browse user accounts
     When I navigate to "Users > Accounts > Browse list of users" in site administration
     # Name field always present, email field is default for showidentity.
     Then the following should exist in the "reportbuilder-table" table:
-      | First name / Last name | Email address   |
+      | First name           | Email address   |
       | User One             | one@example.com |
       | User Two             | two@example.com |
     # Should not see other identity fields or non-default name fields.
@@ -34,7 +34,7 @@ Feature: An administrator can browse user accounts
       | alternativefullnameformat | firstnamephonetic lastname |
     When I navigate to "Users > Accounts > Browse list of users" in site administration
     Then the following should exist in the "reportbuilder-table" table:
-      | First name - phonetic / Last name | Email address   |
+      | First name - phonetic           | Email address   |
       | Yewzer One                      | one@example.com |
       | Yoozare Two                     | two@example.com |
 
@@ -43,7 +43,7 @@ Feature: An administrator can browse user accounts
       | showuseridentity | department,profile_field_frog |
     When I navigate to "Users > Accounts > Browse list of users" in site administration
     Then the following should exist in the "reportbuilder-table" table:
-      | First name / Last name | Favourite frog  | Department |
+      | First name           | Favourite frog  | Department |
       | User One             | Kermit          | Attack     |
       | User Two             | Tree            | Defence    |
     And I should not see "Email address" in the "table" "css_element"
@@ -79,9 +79,10 @@ Feature: An administrator can browse user accounts
   Scenario: Delete a user account
     Given I navigate to "Users > Accounts > Browse list of users" in site administration
     And I press "Delete" action in the "User One" report row
-    And I should see "Are you absolutely sure you want to completely delete the user 'User One'"
-    And I press "Delete"
-    Then I should not see "User One" in the "reportbuilder-table" "table"
+    And I should see "Are you absolutely sure you want to completely delete the user User One" in the "Delete user" "dialogue"
+    And I click on "Delete" "button" in the "Delete user" "dialogue"
+    Then I should see "Deleted user User One"
+    And I should not see "User One" in the "reportbuilder-table" "table"
 
   @javascript
   Scenario: Resend email and confirm a user account
@@ -102,7 +103,7 @@ Feature: An administrator can browse user accounts
       | user3    | User      | Three    | three@example.com | Glass              |
     And I navigate to "Users > Accounts > Browse list of users" in site administration
     Then the following should exist in the "reportbuilder-table" table:
-      | First name / Last name | Email address     |
+      | First name             | Email address     |
       | User One               | one@example.com   |
       | User Two               | two@example.com   |
       | User Three             | three@example.com |
@@ -136,7 +137,7 @@ Feature: An administrator can browse user accounts
       | user2 | C1     | student |
     And I navigate to "Users > Accounts > Browse list of users" in site administration
     Then the following should exist in the "reportbuilder-table" table:
-      | First name / Last name | Email address     |
+      | First name             | Email address     |
       | User One               | one@example.com   |
       | User Two               | two@example.com   |
     And I click on "Filters" "button"
@@ -165,14 +166,12 @@ Feature: An administrator can browse user accounts
       | user1 | coursecreator | system       |           |
     And I navigate to "Users > Accounts > Browse list of users" in site administration
     Then the following should exist in the "reportbuilder-table" table:
-      | First name / Last name | Email address     |
+      | First name             | Email address     |
       | User One               | one@example.com   |
       | User Two               | two@example.com   |
       | User Three             | three@example.com |
     And I click on "Filters" "button"
-    And I set the following fields in the "System role" "core_reportbuilder > Filter" to these values:
-      | System role operator | Is equal to    |
-      | System role value    | Course creator |
+    And I set the field "System role value" in the "System role" "core_reportbuilder > Filter" to "Course creator"
     And I click on "Apply" "button" in the "[data-region='report-filters']" "css_element"
     And I click on "Filters" "button"
     And I should see "User One" in the "reportbuilder-table" "table"
@@ -180,8 +179,7 @@ Feature: An administrator can browse user accounts
     And I should not see "User Three" in the "reportbuilder-table" "table"
     And I click on "Filters" "button"
     And I click on "Reset all" "button" in the "[data-region='report-filters']" "css_element"
-    And I set the following fields in the "Course role" "core_reportbuilder > Filter" to these values:
-      | Role name | Teacher |
+    And I set the field "Role name" in the "Course role" "core_reportbuilder > Filter" to "Teacher"
     And I click on "Apply" "button" in the "[data-region='report-filters']" "css_element"
     And I click on "Filters" "button"
     And I should not see "User One" in the "reportbuilder-table" "table"
@@ -194,3 +192,29 @@ Feature: An administrator can browse user accounts
     Then I should see "Username"
     And I should see "User picture"
     And I should see "Additional names"
+
+  @javascript
+  Scenario: Browse user list as a person with limited capabilities
+    Given the following "users" exist:
+      | username | firstname | lastname | email               |
+      | manager  | Max       | Manager  | manager@example.com |
+    And the following "roles" exist:
+      | name           | shortname | description      | archetype |
+      | Custom manager | custom1   | My custom role 1 |           |
+    And the following "permission overrides" exist:
+      | capability             | permission | role    | contextlevel | reference |
+      | moodle/site:configview | Allow      | custom1 | System       |           |
+      | moodle/user:update     | Allow      | custom1 | System       |           |
+    And the following "role assigns" exist:
+      | user    | role    | contextlevel | reference |
+      | manager | custom1 | System       |           |
+    When I log in as "manager"
+    And I navigate to "Users > Accounts > Browse list of users" in site administration
+    And I click on "User One" "checkbox"
+    And the "Bulk user actions" select box should contain "Confirm"
+    And the "Bulk user actions" select box should not contain "Delete"
+    And I set the field "Bulk user actions" to "Force password change"
+    And I should see "Are you absolutely sure you want to force a password change to User One ?"
+    And I press "Yes"
+    And I press "Continue"
+    And I should see "Browse list of users"
